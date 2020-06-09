@@ -1,0 +1,85 @@
+#---------------------------------------------------------------------------------------------------
+# Dockerfile to Sniper Simulator
+#---------------------------------------------------------------------------------------------------
+# Operation System: Ubuntu 18:04 
+# Sniper Simulator: 7.3
+# Benchmarks: Splash2 and Parsec 2.1
+#
+# @author: Kleber Kruger - UNICAMP (Licensed under the MIT License).
+#---------------------------------------------------------------------------------------------------
+
+FROM ubuntu:20.04
+
+# Add i386 support for support for Pin
+RUN dpkg --add-architecture i386
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive \ 
+    apt-get install -yq \
+    #
+    # For i386 support
+    python \
+    screen \
+    tmux \
+    binutils \
+    libc6:i386 \
+    libncurses5:i386 \
+    libstdc++6:i386 \
+    #
+    # For building Sniper
+    automake \
+    build-essential \
+    curl \
+    wget \
+    libboost-dev \
+    libsqlite3-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    g++-7 \
+    # g++-4.8 \
+    #
+    # For building RISC-V Tools
+    autoconf \
+    automake \
+    autotools-dev \
+    bc \
+    bison \
+    curl \
+    device-tree-compiler \
+    flex \
+    gawk \
+    gperf \
+    libexpat-dev \
+    libgmp-dev \
+    libmpc-dev \
+    libmpfr-dev \
+    libtool \
+    libusb-1.0-0-dev \
+    patchutils \
+    pkg-config \
+    texinfo \
+    zlib1g-dev \
+    #
+    # Helper utilities
+    gdb \
+    git \
+    #
+    # For install Python 3
+    python3 \
+    python3-pip \
+    python3-dev \
+    #
+    # For build benchmarks
+    gfortran \
+    xsltproc \
+    gettext \
+    libx11-dev \
+    libxext-dev \
+    libxt-dev \
+    libxmu-dev \
+    libxi-dev \
+    #
+    # Clean up
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/* 

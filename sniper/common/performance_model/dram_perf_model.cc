@@ -5,7 +5,7 @@
 #include "dram_perf_model_normal.h"
 #include "config.hpp"
 
-DramPerfModel* DramPerfModel::createDramPerfModel(core_id_t core_id, UInt32 cache_block_size)
+DramPerfModel *DramPerfModel::createDramPerfModel(core_id_t core_id, UInt32 cache_block_size)
 {
    String type = Sim()->getCfg()->getString("perf_model/dram/type");
 
@@ -24,5 +24,26 @@ DramPerfModel* DramPerfModel::createDramPerfModel(core_id_t core_id, UInt32 cach
    else
    {
       LOG_PRINT_ERROR("Invalid DRAM model type %s", type.c_str());
+   }
+}
+
+void DramPerfModel::dramAccessed(SubsecondTime pkt_time, UInt64 pkt_size, core_id_t requester, IntPtr address, DramCntlrInterface::access_t access_type, ShmemPerf *perf)
+{
+   static UInt64 dram_write_access = 0;
+   static SubsecondTime last = pkt_time;
+
+   if (access_type == DramCntlrInterface::WRITE)
+   {
+      // SubsecondTime curr = Sim()->getClockSkewMinimizationServer()->getGlobalTime();
+
+      SubsecondTime t = pkt_time >= last ? (pkt_time - last) : (last - pkt_time);
+      if (pkt_time > last)
+         last = pkt_time;
+
+      FILE *file = fopen("dram_log.txt", "a");
+      if (file == NULL)
+         fprintf(stderr, "Erro ao abrir o arquivo.txt.\n");
+      fprintf(file, "%lu | %lu | %lu\n", ++dram_write_access, pkt_time.getNS(), t.getNS());
+      fclose(file);
    }
 }

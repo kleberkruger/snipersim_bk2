@@ -25,6 +25,20 @@ class DramPerfModel
       bool m_enabled;
       UInt64 m_num_accesses;
 
+      /**
+       * Register DRAM access.
+       * 
+       * @arg pkt_time
+       * @arg pkt_size
+       * @arg requester
+       * @arg address
+       * @arg access_type
+       * @arg perf
+       * 
+       * Implemented by Kleber Kruger
+       */
+      void dramAccessed(SubsecondTime pkt_time, UInt64 pkt_size, core_id_t requester, IntPtr address, DramCntlrInterface::access_t access_type, ShmemPerf *perf);
+
    public:
       static DramPerfModel* createDramPerfModel(core_id_t core_id, UInt32 cache_block_size);
 

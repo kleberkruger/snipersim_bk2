@@ -71,5 +71,8 @@ DramPerfModelConstant::getAccessLatency(SubsecondTime pkt_time, UInt64 pkt_size,
    m_total_access_latency += access_latency;
    m_total_queueing_delay += queue_delay;
 
+   // Modified by Kleber Kruger
+   dramAccessed(pkt_time, pkt_size, requester, address, access_type, perf);
+
    return access_latency;
 }

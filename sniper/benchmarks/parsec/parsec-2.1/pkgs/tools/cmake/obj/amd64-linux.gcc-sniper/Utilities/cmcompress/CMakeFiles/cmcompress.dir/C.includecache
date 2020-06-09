@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/workspaces/sniper/benchmarks/parsec/parsec-2.1/pkgs/tools/cmake/src/Utilities/cmcompress/cmcompress.c
+cmcompress.h
+/workspaces/sniper/benchmarks/parsec/parsec-2.1/pkgs/tools/cmake/src/Utilities/cmcompress/cmcompress.h
+errno.h
+-
+string.h
+-
+
+/workspaces/sniper/benchmarks/parsec/parsec-2.1/pkgs/tools/cmake/src/Utilities/cmcompress/cmcompress.h
+stdio.h
+-
+

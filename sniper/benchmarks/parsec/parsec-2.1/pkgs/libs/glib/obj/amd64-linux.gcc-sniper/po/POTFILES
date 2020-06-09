@@ -1,0 +1,14 @@
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gbookmarkfile.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gconvert.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gdir.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gfileutils.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/giochannel.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/giowin32.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gmappedfile.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gmarkup.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gshell.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gspawn-win32.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gspawn.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gutf8.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/goption.c \
+	/workspaces/sniper/benchmarks/parsec/parsec-2.1/./pkgs/libs/glib/src/glib/gkeyfile.c

@@ -1,0 +1,38 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/workspaces/sniper/benchmarks/parsec/parsec-2.1/pkgs/tools/cmake/src/Source/cmListFileLexer.c
+stdio.h
+-
+string.h
+-
+errno.h
+-
+stdlib.h
+-
+inttypes.h
+-
+cmStandardLexer.h
+/workspaces/sniper/benchmarks/parsec/parsec-2.1/pkgs/tools/cmake/src/Source/cmStandardLexer.h
+cmListFileLexer.h
+/workspaces/sniper/benchmarks/parsec/parsec-2.1/pkgs/tools/cmake/src/Source/cmListFileLexer.h
+unistd.h
+-
+
+/workspaces/sniper/benchmarks/parsec/parsec-2.1/pkgs/tools/cmake/src/Source/cmListFileLexer.h
+
+/workspaces/sniper/benchmarks/parsec/parsec-2.1/pkgs/tools/cmake/src/Source/cmStandardLexer.h
+stdint.h
+-
+sys/termios.h
+-
+io.h
+-
+malloc.h
+-
+

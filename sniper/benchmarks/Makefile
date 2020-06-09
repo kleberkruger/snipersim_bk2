@@ -10,9 +10,9 @@ endif
 
 all: dependencies
 	make -C tools/hooks
-	make -C splash2
+	# make -C splash2
 	make -C parsec
-	make -C cpu2006
+	# make -C cpu2006
 	make -C npb
 	make -C local
 

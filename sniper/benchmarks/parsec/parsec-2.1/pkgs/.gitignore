@@ -1,0 +1,14 @@
+# object files
+*.d
+*.o
+*.pyc
+*.a
+
+# emacs temp files
+*~
+
+# vi temp files
+*.swp
+
+# Benchmarks input files
+*.tar

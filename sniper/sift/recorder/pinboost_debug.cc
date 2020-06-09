@@ -94,6 +94,7 @@ bool pinboost_backtrace(EXCEPTION_INFO *pExceptInfo, PHYSICAL_CONTEXT *pPhysCtxt
       return false;
    }
 
+   // fixed by Kleber Kruger to compile in gcc 9 (original cmd[1024])
    char cmd[2048];
    sprintf(cmd, "%s/tools/gen_backtrace.py \"%s\" >&2", getenv("SNIPER_ROOT"), backtrace_filename);
 

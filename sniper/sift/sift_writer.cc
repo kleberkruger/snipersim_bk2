@@ -87,6 +87,8 @@ Sift::Writer::Writer(const char *filename, GetCodeFunc getCodeFunc, bool useComp
    std::cerr << "[DEBUG:" << m_id << "] Write Header" << std::endl;
    #endif
 
+   // fixed by Kleber Kruger to compile in gcc 9 (added static)
+   // Sift::Header hdr = {Sift::MagicNumber, 0 /* header size */, options, {}};
    static Sift::Header hdr = { Sift::MagicNumber, 0 /* header size */, options, {}};
    output->write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
    output->flush();

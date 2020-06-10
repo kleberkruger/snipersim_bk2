@@ -25,6 +25,8 @@ class DramPerfModel
       bool m_enabled;
       UInt64 m_num_accesses;
 
+      FILE *dram_log_file; // Modified by Kleber Kruger
+
       /**
        * Register DRAM access.
        * 
@@ -42,8 +44,15 @@ class DramPerfModel
    public:
       static DramPerfModel* createDramPerfModel(core_id_t core_id, UInt32 cache_block_size);
 
-      DramPerfModel(core_id_t core_id, UInt64 cache_block_size) : m_enabled(false), m_num_accesses(0) {}
-      virtual ~DramPerfModel() {}
+      DramPerfModel(core_id_t core_id, UInt64 cache_block_size) : m_enabled(false), m_num_accesses(0) 
+      {
+         // Modified by Kleber Kruger
+         if ((dram_log_file = fopen("dram_log.csv", "w")) == NULL)
+            fprintf(stderr, "DRAM Log File Error.\n");
+      }
+      virtual ~DramPerfModel() {
+         fclose(dram_log_file); // Modified by Kleber Kruger
+      }
       virtual SubsecondTime getAccessLatency(SubsecondTime pkt_time, UInt64 pkt_size, core_id_t requester, IntPtr address, DramCntlrInterface::access_t access_type, ShmemPerf *perf) = 0;
       void enable() { m_enabled = true; }
       void disable() { m_enabled = false; }

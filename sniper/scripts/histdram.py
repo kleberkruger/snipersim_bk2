@@ -9,13 +9,10 @@ args = parser.parse_args()
 filepath = os.path.splitext(args.filepath)[0]
 print("Gerando histograma para o arquivo '{}.csv'...".format(filepath))
 
-min_interval, max_interval, data = sys.maxsize, 0, []
-
+data = []
 with open(filepath + '.csv') as csv_file:
     for line in csv_file:
         _, tm = [int(x) for x in line.split(",")]
-        min_interval = min(min_interval, tm)
-        max_interval = max(max_interval, tm)
         data.append(tm)
 
 plt.style.use('seaborn-whitegrid')

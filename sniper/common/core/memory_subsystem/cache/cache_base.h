@@ -71,7 +71,7 @@ class CacheBase
       UInt32 m_associativity;
       UInt32 m_blocksize;
       CacheBase::hash_t m_hash;
-      UInt32 m_num_sets;
+      UInt32 m_num_sets; // number of lines
       AddressHomeLookup *m_ahl;
 
       // computed params

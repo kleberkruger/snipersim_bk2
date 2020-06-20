@@ -139,6 +139,7 @@ CacheSet::createCacheSet(String cfgname, core_id_t core_id,
       UInt32 associativity, UInt32 blocksize, CacheSetInfo* set_info)
 {
    CacheBase::ReplacementPolicy policy = parsePolicyType(replacement_policy);
+   // printf("Create CacheSet: %s %d %s %d %d %d %p\n", cfgname.c_str(), core_id, replacement_policy.c_str(), cache_type, associativity, blocksize, set_info);
    switch(policy)
    {
       case CacheBase::ROUND_ROBIN:

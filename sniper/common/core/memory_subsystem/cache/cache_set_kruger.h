@@ -41,6 +41,8 @@ class CacheSetKruger : public CacheSet
       UInt8* m_lru_bits;
       CacheSetInfoKruger* m_set_info;
       void moveToMRU(UInt32 accessed_index);
+
+      void printLRUBits(); // Kruger added.
 };
 
 #endif /* CACHE_SET_KRUGER_H */

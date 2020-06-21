@@ -112,6 +112,9 @@ Cache::accessSingleLine(IntPtr addr, access_t access_type,
    }
    else
    {
+      if(m_name.compare("L3") == 0)
+         printf("Escrevendo na linha: %d\n", line_index);
+
       set->write_line(line_index, block_offset, buff, bytes, update_replacement);
 
       // NOTE: assumes error occurs in memory. If we want to model bus errors, insert the error into buff instead

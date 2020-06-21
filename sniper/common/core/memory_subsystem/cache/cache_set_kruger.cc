@@ -1,21 +1,14 @@
 #include "cache_set_kruger.h"
 #include "log.h"
-#include "stats.h"
 
-// Implements LRU replacement (modified version to keep dirty blocks),
-// optionally augmented with Query-Based Selection [Jaleel et al., MICRO'10]
-// Implemented by: Kleber Kruger.
+constexpr const char *const CacheSetKruger::states[];
 
-CacheSetKruger::CacheSetKruger(
-    CacheBase::cache_t cache_type,
-    UInt32 associativity, UInt32 blocksize, CacheSetInfoKruger *set_info, UInt8 num_attempts)
-    : CacheSet(cache_type, associativity, blocksize), m_num_attempts(num_attempts), m_set_info(set_info)
+CacheSetKruger::CacheSetKruger(CacheBase::cache_t cache_type, UInt32 associativity, UInt32 blocksize)
+    : CacheSet(cache_type, associativity, blocksize)
 {
     m_lru_bits = new UInt8[m_associativity];
     for (UInt32 i = 0; i < m_associativity; i++)
         m_lru_bits[i] = i;
-
-    printf("CacheSetKruger created: %d | %d | %d | %d | %p \n", cache_type, associativity, blocksize, num_attempts, set_info);
 }
 
 CacheSetKruger::~CacheSetKruger()
@@ -26,117 +19,98 @@ CacheSetKruger::~CacheSetKruger()
 UInt32
 CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
 {
-    // First try to find an invalid block
+    injectTest();
+
+    printf("\nINICIO getReplacementIndex() : \n");
+    printBlockStats();
+
+    // Invalidations may mess up the LRU bits
+
+    bool all_modified = true;
+
     for (UInt32 i = 0; i < m_associativity; i++)
     {
         if (!m_cache_block_info_array[i]->isValid())
         {
-            // Mark our newly-inserted line as most-recently used
-            printf("Encontrou bloco inválido em: %d\n", i);
-            moveToMRU(i);
+            updateReplacementIndex(i);
+            printf("RETORNEI o bloco %s da posicao: %d\n", states[m_cache_block_info_array[i]->getCState()], i);
+            printf("FIM getReplacementIndex()\n");
             return i;
         }
+        else if (!(m_cache_block_info_array[i]->getCState() == CacheState::MODIFIED))
+        {
+            all_modified = false;
+        }
     }
 
-    // Make m_num_attemps attempts at evicting the block at LRU position
-    for (UInt8 attempt = 0; attempt < m_num_attempts; ++attempt)
+    if (all_modified)
     {
-        printf("Tentando a %d vez...\n", attempt);
-        UInt32 index = 0;
-        UInt8 max_bits = 0;
+        printf("!!! FAZER FLUSH!!!\n");
+        printf("RETORNEI o bloco 0\n");
+        printf("FIM getReplacementIndex()\n");
+        return 0;
+    }
+
+    printf("NAO TEM blocos inválidos\n");
+    printBlockStats();
+
+    UInt32 target = 0;
+    while (target < m_associativity)
+    {
         for (UInt32 i = 0; i < m_associativity; i++)
         {
-            printf("m_lru_bits[i] = %d | max_bits = %d\n", m_lru_bits[i], max_bits);
-            if (m_lru_bits[i] > max_bits && isValidReplacement(i))
+            // printf("i = %d (%d == %d)?\n", i, m_lru_bits[i], target);
+            if (m_lru_bits[i] == target && isValidReplacement(i) && isValidReplacement2(i))
             {
-                printf("Entrei em if (m_lru_bits[i] > max_bits && isValidReplacement(i))\n");
-                index = i;
-                max_bits = m_lru_bits[i];
+                updateReplacementIndex(i);
+                printf("RETORNEI o bloco %s da posicao: %d\n", states[m_cache_block_info_array[i]->getCState()], i);
+                printf("FIM getReplacementIndex()\n");
+                return i;
             }
         }
-        LOG_ASSERT_ERROR(index < m_associativity, "Error Finding LRU bits");
-
-        printf("attemp = %d | m_num_attemps = %d | cntrl = %p\n", attempt, m_num_attempts, cntlr);
-
-        bool qbs_reject = false;
-        if (attempt < m_num_attempts - 1)
-        {
-            LOG_ASSERT_ERROR(cntlr != NULL, "CacheCntlr == NULL, QBS can only be used when cntlr is passed in");
-            printf("cntrl usado em %d\n", index);
-            qbs_reject = cntlr->isInLowerLevelCache(m_cache_block_info_array[index]);
-        }
-
-        if (qbs_reject)
-        {
-            // Block is contained in lower-level cache, and we have more tries remaining.
-            // Move this block to MRU and try again
-            moveToMRU(index);
-            cntlr->incrementQBSLookupCost();
-            printf("IF qbs_reject: %d\n", index);
-            continue;
-        }
-        else
-        {
-            // Mark our newly-inserted line as most-recently used
-            moveToMRU(index);
-            m_set_info->incrementAttempt(attempt);
-            printf("ELSE qbs_reject: %d\n", index);
-            return index;
-        }
+        target++;
     }
 
-    LOG_PRINT_ERROR("Should not reach here");
+    LOG_PRINT_ERROR("Error Finding LRU bits");
 }
 
 void CacheSetKruger::updateReplacementIndex(UInt32 accessed_index)
 {
-    m_set_info->increment(m_lru_bits[accessed_index]);
-    moveToMRU(accessed_index);
-}
-
-void CacheSetKruger::moveToMRU(UInt32 accessed_index)
-{
+    printf("\nINÍCIO updateReplacementIndex(%d)\n", accessed_index);
+    printBlockStats();
     for (UInt32 i = 0; i < m_associativity; i++)
     {
         if (m_lru_bits[i] < m_lru_bits[accessed_index])
             m_lru_bits[i]++;
     }
     m_lru_bits[accessed_index] = 0;
-    printLRUBits(); // Modified by Kruger
+    printBlockStats();
+    printf("FIM updateReplacementIndex(%d)\n", accessed_index);
 }
 
-void CacheSetKruger::printLRUBits()
+void CacheSetKruger::printBlockStats()
 {
-    printf("Printing m_lru_bits:\n");
     for (UInt32 i = 0; i < m_associativity; i++)
-        printf("%d ", m_lru_bits[i]);
+        printf("[%d:%s] ", m_lru_bits[i], states[m_cache_block_info_array[i]->getCState()]);
     printf("\n");
 }
 
-CacheSetInfoKruger::CacheSetInfoKruger(String name, String cfgname, core_id_t core_id, UInt32 associativity, UInt8 num_attempts)
-    : m_associativity(associativity), m_attempts(NULL)
+bool CacheSetKruger::isValidReplacement2(UInt32 index)
 {
-    m_access = new UInt64[m_associativity];
-    for (UInt32 i = 0; i < m_associativity; ++i)
-    {
-        m_access[i] = 0;
-        registerStatsMetric(name, core_id, String("access-mru-") + itostr(i), &m_access[i]);
-    }
+    return m_cache_block_info_array[index]->getCState() != CacheState::MODIFIED;
+}
 
-    if (num_attempts > 1)
-    {
-        m_attempts = new UInt64[num_attempts];
-        for (UInt32 i = 0; i < num_attempts; ++i)
-        {
-            m_attempts[i] = 0;
-            registerStatsMetric(name, core_id, String("qbs-attempt-") + itostr(i), &m_attempts[i]);
-        }
-    }
-};
-
-CacheSetInfoKruger::~CacheSetInfoKruger()
+void CacheSetKruger::injectTest()
 {
-    delete[] m_access;
-    if (m_attempts)
-        delete[] m_attempts;
+    static int step = 1;
+    if (step == 1)
+        m_cache_block_info_array[0]->setCState(CacheState::MODIFIED);
+    else if (step == 2)
+        m_cache_block_info_array[1]->setCState(CacheState::MODIFIED);
+    else if (step == 3)
+        m_cache_block_info_array[2]->setCState(CacheState::MODIFIED);
+    else if (step == 4)
+        m_cache_block_info_array[3]->setCState(CacheState::MODIFIED);
+
+    step++;
 }

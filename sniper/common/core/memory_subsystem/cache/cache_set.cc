@@ -169,7 +169,8 @@ CacheSet::createCacheSet(String cfgname, core_id_t core_id,
          return new CacheSetRandom(cache_type, associativity, blocksize);
 
       case CacheBase::KRUGER: // Kruger added.
-         return new CacheSetKruger(cache_type, associativity, blocksize, dynamic_cast<CacheSetInfoKruger *>(set_info), getNumQBSAttempts(policy, cfgname, core_id));
+         // return new CacheSetKruger(cache_type, associativity, blocksize, dynamic_cast<CacheSetInfoKruger *>(set_info), getNumQBSAttempts(policy, cfgname, core_id));
+         return new CacheSetKruger(cache_type, associativity, blocksize);
 
       default:
          LOG_PRINT_ERROR("Unrecognized Cache Replacement Policy: %i",
@@ -190,7 +191,7 @@ CacheSet::createCacheSetInfo(String name, String cfgname, core_id_t core_id, Str
       case CacheBase::LRU_QBS:
       case CacheBase::SRRIP:
       case CacheBase::SRRIP_QBS:
-      case CacheBase::KRUGER: // Kruger added.
+      // case CacheBase::KRUGER: // Kruger added.
          return new CacheSetInfoLRU(name, cfgname, core_id, associativity, getNumQBSAttempts(policy, cfgname, core_id));
       default:
          return NULL;

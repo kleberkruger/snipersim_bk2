@@ -19,9 +19,9 @@ CacheSetKruger::~CacheSetKruger()
 UInt32
 CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
 {
-    injectTest();
+    // injectTest();
 
-    printf("\nINICIO getReplacementIndex() : \n");
+    printf("\nINICIO getReplacementIndex()\n");
     printBlockStats();
 
     // Invalidations may mess up the LRU bits
@@ -34,7 +34,7 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
         {
             updateReplacementIndex(i);
             printf("RETORNEI o bloco %s da posicao: %d\n", states[m_cache_block_info_array[i]->getCState()], i);
-            printf("FIM getReplacementIndex()\n");
+            // printf("FIM getReplacementIndex()\n");
             return i;
         }
         else if (!(m_cache_block_info_array[i]->getCState() == CacheState::MODIFIED))
@@ -45,14 +45,15 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
 
     if (all_modified)
     {
-        printf("!!! FAZER FLUSH!!!\n");
+        cntlr->flush();
+        // printf("!!! FAZER FLUSH !!!\n");
         printf("RETORNEI o bloco 0\n");
-        printf("FIM getReplacementIndex()\n");
+        // printf("FIM getReplacementIndex()\n");
         return 0;
     }
 
-    printf("NAO TEM blocos inválidos\n");
-    printBlockStats();
+    // printf("NAO TEM blocos inválidos\n");
+    // printBlockStats();
 
     UInt32 target = 0;
     while (target < m_associativity)
@@ -64,7 +65,7 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
             {
                 updateReplacementIndex(i);
                 printf("RETORNEI o bloco %s da posicao: %d\n", states[m_cache_block_info_array[i]->getCState()], i);
-                printf("FIM getReplacementIndex()\n");
+                // printf("FIM getReplacementIndex()\n");
                 return i;
             }
         }
@@ -76,16 +77,16 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
 
 void CacheSetKruger::updateReplacementIndex(UInt32 accessed_index)
 {
-    printf("\nINÍCIO updateReplacementIndex(%d)\n", accessed_index);
-    printBlockStats();
+    // printf("\nINÍCIO updateReplacementIndex(%d)\n", accessed_index);
+    // printBlockStats();
     for (UInt32 i = 0; i < m_associativity; i++)
     {
         if (m_lru_bits[i] < m_lru_bits[accessed_index])
             m_lru_bits[i]++;
     }
     m_lru_bits[accessed_index] = 0;
-    printBlockStats();
-    printf("FIM updateReplacementIndex(%d)\n", accessed_index);
+    // printBlockStats();
+    // printf("FIM updateReplacementIndex(%d)\n", accessed_index);
 }
 
 void CacheSetKruger::printBlockStats()

@@ -79,7 +79,6 @@ CacheBase::splitAddress(const IntPtr addr, IntPtr& tag, UInt32& set_index) const
       }
       case CacheBase::HASH_PRIME_DIS:
       {
-
       	 //Prime Displacement Hashing Function (HPCA04)
          UInt64 si = block_num % m_num_sets;
          UInt64 Ti = block_num >> m_log_num_sets;

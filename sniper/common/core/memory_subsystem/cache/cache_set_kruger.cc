@@ -7,7 +7,7 @@ constexpr const char *const CacheSetKruger::states[];
 CacheSetKruger::CacheSetKruger(
     CacheBase::cache_t cache_type,
     UInt32 associativity, UInt32 blocksize, CacheSetInfoLRU *set_info, UInt8 num_attempts)
-    : CacheSet(cache_type, associativity, blocksize), m_num_attempts(num_attempts), m_set_info(set_info), m_access(0)
+    : CacheSet(cache_type, associativity, blocksize), m_num_attempts(num_attempts), m_set_info(set_info)
 {
     m_lru_bits = new UInt8[m_associativity];
     for (UInt32 i = 0; i < m_associativity; i++)
@@ -81,9 +81,6 @@ CacheSetKruger::~CacheSetKruger()
 UInt32
 CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
 {
-    printf("\naccess number: %lu\n", ++m_access);
-    printBlockStats();
-
     bool all_modified = true;
     UInt32 index = 0;
 
@@ -94,9 +91,6 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
         {
             // Mark our newly-inserted line as most-recently used
             moveToMRU(i);
-            printBlockStats();
-            printf("RETORNEI o bloco %s da posicao: %d\n", states[m_cache_block_info_array[i]->getCState()], i);
-            // if (m_access == 20) exit(0);
             return i;
         }
 
@@ -112,8 +106,6 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
     if (all_modified)
     {
         cntlr->flush();
-        printf("RETORNEI o bloco 0\n");
-        exit(0);
         return 0;
     }
 
@@ -122,9 +114,6 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
     // Mark our newly-inserted line as most-recently used
     moveToMRU(index);
     m_set_info->incrementAttempt(0);
-    printBlockStats();
-    printf("RETORNEI o bloco %s da posicao: %d\n", states[m_cache_block_info_array[index]->getCState()], index);
-
     return index;
 }
 

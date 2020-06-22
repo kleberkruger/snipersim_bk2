@@ -35,11 +35,6 @@ Cache::Cache(
    for (UInt32 i = 0; i < m_num_sets; i++)
       m_set_usage_hist[i] = 0;
 #endif
-
-   if (replacement_policy.compare("kruger") == 0) // Modified by Kleber Kruger
-      printf("Created cache: %s %s %d %d %d %d %s %d %d %p %p\n", name.c_str(), cfgname.c_str(),
-             core_id, num_sets, associativity, cache_block_size, replacement_policy.c_str(), cache_type, hash, 
-             fault_injector, ahl);
 }
 
 Cache::~Cache()
@@ -112,10 +107,6 @@ Cache::accessSingleLine(IntPtr addr, access_t access_type,
    }
    else
    {
-      // printf("Escrevendo na cache %s na linha: %d\n", m_name.c_str(), line_index);
-      if(m_name.compare("L3") == 0)
-         printf("Escrevendo na cache L3 na linha: %d\n", line_index);
-
       set->write_line(line_index, block_offset, buff, bytes, update_replacement);
 
       // NOTE: assumes error occurs in memory. If we want to model bus errors, insert the error into buff instead

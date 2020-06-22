@@ -20,11 +20,10 @@ protected:
     const UInt8 m_num_attempts;
     UInt8 *m_lru_bits;
     CacheSetInfoLRU *m_set_info;
-    UInt64 m_access; // Added by Kruger
     
     void moveToMRU(UInt32 accessed_index);
     bool isValidReplacement(UInt32 index);
-    void printBlockStats();
+    void printBlockStats(); // FIXME: Delete-me. Apenas para debug.
 };
 
 #endif /* CACHE_SET_KRUGER_H */

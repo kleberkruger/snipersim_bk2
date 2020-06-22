@@ -16,13 +16,14 @@ public:
 
 protected:
     static const constexpr char *const states[] = {"INVALID", "SHARED", "SHARED_UPGRADING", "EXCLUSIVE", "OWNED", "MODIFIED"};
-    UInt64 m_access; // Added by Kruger
 
     const UInt8 m_num_attempts;
     UInt8 *m_lru_bits;
     CacheSetInfoLRU *m_set_info;
+    UInt64 m_access; // Added by Kruger
+    
     void moveToMRU(UInt32 accessed_index);
-    bool isValidReplacement2(UInt32 index);
+    bool isValidReplacement(UInt32 index);
     void printBlockStats();
 };
 

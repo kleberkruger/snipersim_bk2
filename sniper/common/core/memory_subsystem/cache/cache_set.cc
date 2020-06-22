@@ -169,7 +169,7 @@ CacheSet::createCacheSet(String cfgname, core_id_t core_id,
          return new CacheSetRandom(cache_type, associativity, blocksize);
 
       case CacheBase::KRUGER: // Kruger added.
-      case CacheBase::KRUGER_QBS: // Kruger added.
+      // case CacheBase::KRUGER_QBS: // Kruger added.
          // return new CacheSetKruger(cache_type, associativity, blocksize);
          return new CacheSetKruger(cache_type, associativity, blocksize, dynamic_cast<CacheSetInfoLRU *>(set_info), getNumQBSAttempts(policy, cfgname, core_id));
 
@@ -192,7 +192,7 @@ CacheSet::createCacheSetInfo(String name, String cfgname, core_id_t core_id, Str
       case CacheBase::SRRIP:
       case CacheBase::SRRIP_QBS:
       case CacheBase::KRUGER: // Kruger added.
-      case CacheBase::KRUGER_QBS: // Kruger added.
+      // case CacheBase::KRUGER_QBS: // Kruger added.
          return new CacheSetInfoLRU(name, cfgname, core_id, associativity, getNumQBSAttempts(policy, cfgname, core_id));
       default:
          return NULL;
@@ -206,7 +206,7 @@ CacheSet::getNumQBSAttempts(CacheBase::ReplacementPolicy policy, String cfgname,
    {
       case CacheBase::LRU_QBS:
       case CacheBase::SRRIP_QBS:
-      case CacheBase::KRUGER_QBS: 
+      // case CacheBase::KRUGER_QBS: 
          return Sim()->getCfg()->getIntArray(cfgname + "/qbs/attempts", core_id);
       default:
          return 1;
@@ -238,8 +238,8 @@ CacheSet::parsePolicyType(String policy)
       return CacheBase::RANDOM;
    if (policy == "kruger") // Kruger added.
       return CacheBase::KRUGER;
-   if (policy == "kruger_qbs") // Kruger added.
-      return CacheBase::KRUGER_QBS;
+   // if (policy == "kruger_qbs") // Kruger added.
+   //    return CacheBase::KRUGER_QBS;
 
    LOG_PRINT_ERROR("Unknown replacement policy %s", policy.c_str());
 }

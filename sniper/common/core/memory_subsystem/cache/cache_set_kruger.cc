@@ -84,8 +84,10 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
     printf("\naccess number: %lu\n", ++m_access);
     printBlockStats();
 
-    // First try to find an invalid block
     bool all_modified = true;
+    UInt32 index = 0;
+
+    // First try to find an invalid block
     for (UInt32 i = 0; i < m_associativity; i++)
     {
         if (!m_cache_block_info_array[i]->isValid())
@@ -97,10 +99,14 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
             // if (m_access == 20) exit(0);
             return i;
         }
-        else if (!(m_cache_block_info_array[i]->getCState() == CacheState::MODIFIED))
-        {
+
+        // Find the last recently used between modified blocks
+        if (m_lru_bits[i] > m_lru_bits[index] && isValidReplacement(i))
+            index = i;
+
+        // Check if all are modified
+        if (!(m_cache_block_info_array[i]->getCState() == CacheState::MODIFIED))
             all_modified = false;
-        }
     }
 
     if (all_modified)
@@ -111,17 +117,6 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
         return 0;
     }
 
-    UInt32 index = 0;
-    UInt8 max_bits = 0;
-    for (UInt32 i = 0; i < m_associativity; i++)
-    {
-        // if (m_lru_bits[i] > max_bits && isValidReplacement(i))
-        if (m_lru_bits[i] > max_bits && isValidReplacement(i) && isValidReplacement2(i))
-        {
-            index = i;
-            max_bits = m_lru_bits[i];
-        }
-    }
     LOG_ASSERT_ERROR(index < m_associativity, "Error Finding LRU bits");
 
     // Mark our newly-inserted line as most-recently used
@@ -129,8 +124,6 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
     m_set_info->incrementAttempt(0);
     printBlockStats();
     printf("RETORNEI o bloco %s da posicao: %d\n", states[m_cache_block_info_array[index]->getCState()], index);
-
-    // if (m_access == 20) exit(0);
 
     return index;
 }
@@ -151,9 +144,10 @@ void CacheSetKruger::moveToMRU(UInt32 accessed_index)
     m_lru_bits[accessed_index] = 0;
 }
 
-bool CacheSetKruger::isValidReplacement2(UInt32 index)
+bool CacheSetKruger::isValidReplacement(UInt32 index)
 {
-    return m_cache_block_info_array[index]->getCState() != CacheState::MODIFIED;
+    CacheState::cstate_t state = m_cache_block_info_array[index]->getCState(); 
+    return (state != CacheState::SHARED_UPGRADING && state != CacheState::MODIFIED);
 }
 
 void CacheSetKruger::printBlockStats()

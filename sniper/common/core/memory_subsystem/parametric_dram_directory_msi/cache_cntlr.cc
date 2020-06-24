@@ -1742,6 +1742,60 @@ CacheCntlr::incrementQBSLookupCost()
    atomic_add_subsecondtime(stats.qbs_query_latency, latency);
 }
 
+void CacheCntlr::flush()
+{
+   printCache();
+   for (UInt32 i = 0; i < m_master->m_cache->getNumSets(); i++)
+   {
+      for (UInt32 j = 0; j < m_master->m_cache->getAssociativity(); j++)
+      {
+         CacheBlockInfo *block = m_master->m_cache->peekBlock(i, j);
+         IntPtr address = m_master->m_cache->tagToAddress(block->getTag());
+
+         // Flush the line
+         Byte data_buf[getCacheBlockSize()];
+         updateCacheBlock(address, CacheState::INVALID, Transition::COHERENCY, data_buf, ShmemPerfModel::_SIM_THREAD);
+         // updateCacheBlock(address, CacheState::INVALID, Transition::UPGRADE, NULL, ShmemPerfModel::_SIM_THREAD);
+
+         // shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_WB);
+         // getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REQ,
+         //                             MemComponent::LAST_LEVEL_CACHE, MemComponent::DRAM,
+         //                             m_core_id_master, /* requester */
+         //                             m_core_id_master, /* receiver */
+         //                             address,
+         //                             data_buf, getCacheBlockSize(),
+         //                             HitWhere::UNKNOWN, m_shmem_perf, ShmemPerfModel::_SIM_THREAD);
+      }
+   }
+   // processFlushReqFromDramDirectory(m_core_id_master, PrL1PrL2DramDirectoryMSI::ShmemMsg::getShmemMsg();
+   printCache();
+   exit(0);
+}
+
+void CacheCntlr::printCache()
+{
+   printf("Cache %s\n--------------------------------------------------\n     ", m_master->m_cache->getName().c_str());
+   for (UInt32 j = 0; j < m_master->m_cache->getAssociativity(); j++)
+      printf("%2d  ", j);
+   printf("\n--------------------------------------------------\n");
+
+   for (UInt32 i = 0; i < m_master->m_cache->getNumSets(); i++)
+   {
+      printf("%4d ", i);
+      for (UInt32 j = 0; j < m_master->m_cache->getAssociativity(); j++)
+      {
+         CacheBlockInfo *block = m_master->m_cache->peekBlock(i, j);
+         printf("[%s] ", block->getCState() == CacheState::MODIFIED ? "X" : " ");
+
+         // if (block->getCState() == CacheState::MODIFIED) printf("[%2d][%2d] ", i, j);
+         // else printf("[  ][  ] ");
+         // IntPtr address = m_master->m_cache->tagToAddress(block->getTag());
+         // printf("%lu | %lu\n", block->getTag(), address);
+      }
+      printf("\n");
+   }
+   printf("\n\n");
+}
 
 /*****************************************************************************
  * handle messages from directory (in network thread)

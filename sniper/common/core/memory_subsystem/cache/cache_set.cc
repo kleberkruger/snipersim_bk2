@@ -104,6 +104,8 @@ CacheSet::insert(CacheBlockInfo* cache_block_info, Byte* fill_buff, bool* evicti
    const UInt32 index = getReplacementIndex(cntlr);
    assert(index < m_associativity);
 
+   Sim();
+
    assert(eviction != NULL);
 
    if (m_cache_block_info_array[index]->isValid())

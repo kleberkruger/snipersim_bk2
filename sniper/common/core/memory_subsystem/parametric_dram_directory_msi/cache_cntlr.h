@@ -348,6 +348,8 @@ namespace ParametricDramDirectoryMSI
 
          CacheCntlr* lastLevelCache(void);
 
+         void printCache(); // Added by Kleber Kruger
+
       public:
 
          CacheCntlr(MemComponent::component_t mem_component,
@@ -400,6 +402,8 @@ namespace ParametricDramDirectoryMSI
 
          bool isInLowerLevelCache(CacheBlockInfo *block_info);
          void incrementQBSLookupCost();
+
+         void flush(); // Added by Kleber Kruger
 
          void enable() { m_master->m_cache->enable(); }
          void disable() { m_master->m_cache->disable(); }

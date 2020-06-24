@@ -2,6 +2,16 @@
   "python.pythonPath": "/usr/bin/python3",
   "files.associations": {
     "radix.C": "cpp",
-    "variant": "cpp"
+    "variant": "cpp",
+    "*.ipp": "cpp",
+    "*.tcc": "cpp",
+    "deque": "cpp",
+    "list": "cpp",
+    "string": "cpp",
+    "unordered_map": "cpp",
+    "unordered_set": "cpp",
+    "vector": "cpp",
+    "ostream": "cpp",
+    "*.in": "cpp"
   }
 }

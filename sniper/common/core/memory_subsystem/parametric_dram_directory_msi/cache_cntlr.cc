@@ -1744,32 +1744,32 @@ CacheCntlr::incrementQBSLookupCost()
 
 void CacheCntlr::flush()
 {
-   printCache();
-   for (UInt32 i = 0; i < m_master->m_cache->getNumSets(); i++)
-   {
-      for (UInt32 j = 0; j < m_master->m_cache->getAssociativity(); j++)
-      {
-         CacheBlockInfo *block = m_master->m_cache->peekBlock(i, j);
-         IntPtr address = m_master->m_cache->tagToAddress(block->getTag());
-
-         // Flush the line
-         Byte data_buf[getCacheBlockSize()];
-         updateCacheBlock(address, CacheState::INVALID, Transition::COHERENCY, data_buf, ShmemPerfModel::_SIM_THREAD);
-         // updateCacheBlock(address, CacheState::INVALID, Transition::UPGRADE, NULL, ShmemPerfModel::_SIM_THREAD);
-
-         // shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_WB);
-         // getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REQ,
-         //                             MemComponent::LAST_LEVEL_CACHE, MemComponent::DRAM,
-         //                             m_core_id_master, /* requester */
-         //                             m_core_id_master, /* receiver */
-         //                             address,
-         //                             data_buf, getCacheBlockSize(),
-         //                             HitWhere::UNKNOWN, m_shmem_perf, ShmemPerfModel::_SIM_THREAD);
-      }
+   printCache(); 
+   for (UInt32 i = 0; i < m_master->m_cache->getNumSets(); i++) 
+   { 
+      for (UInt32 j = 0; j < m_master->m_cache->getAssociativity(); j++) 
+         flushBlock(m_master->m_cache->peekBlock(i, j));
    }
-   // processFlushReqFromDramDirectory(m_core_id_master, PrL1PrL2DramDirectoryMSI::ShmemMsg::getShmemMsg();
    printCache();
    exit(0);
+}
+
+void CacheCntlr::flushBlock(CacheBlockInfo *block_info)
+{
+   IntPtr address = m_master->m_cache->tagToAddress(block_info->getTag());
+
+   // Flush the line
+   Byte data_buf[getCacheBlockSize()];
+   updateCacheBlock(address, CacheState::INVALID, Transition::COHERENCY /* Transition::UPGRADE */,
+                    data_buf /* NULL */, ShmemPerfModel::_SIM_THREAD);
+
+   // shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_WB);
+   getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REP,
+                               MemComponent::LAST_LEVEL_CACHE, MemComponent::DRAM,
+                               m_core_id_master, m_core_id_master,
+                               address,
+                               data_buf, getCacheBlockSize(),
+                               HitWhere::UNKNOWN, m_shmem_perf, ShmemPerfModel::_SIM_THREAD);
 }
 
 void CacheCntlr::printCache()
@@ -1783,15 +1783,7 @@ void CacheCntlr::printCache()
    {
       printf("%4d ", i);
       for (UInt32 j = 0; j < m_master->m_cache->getAssociativity(); j++)
-      {
-         CacheBlockInfo *block = m_master->m_cache->peekBlock(i, j);
-         printf("[%s] ", block->getCState() == CacheState::MODIFIED ? "X" : " ");
-
-         // if (block->getCState() == CacheState::MODIFIED) printf("[%2d][%2d] ", i, j);
-         // else printf("[  ][  ] ");
-         // IntPtr address = m_master->m_cache->tagToAddress(block->getTag());
-         // printf("%lu | %lu\n", block->getTag(), address);
-      }
+         printf("[%s] ", m_master->m_cache->peekBlock(i, j)->getCState() == CacheState::MODIFIED ? "X" : " ");
       printf("\n");
    }
    printf("\n\n");
@@ -1801,61 +1793,59 @@ void CacheCntlr::printCache()
  * handle messages from directory (in network thread)
  *****************************************************************************/
 
-void
-CacheCntlr::handleMsgFromDramDirectory(
-      core_id_t sender, PrL1PrL2DramDirectoryMSI::ShmemMsg* shmem_msg)
+void CacheCntlr::handleMsgFromDramDirectory(
+    core_id_t sender, PrL1PrL2DramDirectoryMSI::ShmemMsg *shmem_msg)
 {
    PrL1PrL2DramDirectoryMSI::ShmemMsg::msg_t shmem_msg_type = shmem_msg->getMsgType();
    IntPtr address = shmem_msg->getAddress();
    core_id_t requester = INVALID_CORE_ID;
-   if ((shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::EX_REP) || (shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::SH_REP)
-         || (shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::UPGRADE_REP) )
+   if ((shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::EX_REP) || (shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::SH_REP) || (shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::UPGRADE_REP))
    {
       ScopedLock sl(getLock()); // Keep lock when handling m_directory_waiters
-      CacheDirectoryWaiter* request = m_master->m_directory_waiters.front(address);
+      CacheDirectoryWaiter *request = m_master->m_directory_waiters.front(address);
       requester = request->cache_cntlr->m_core_id;
    }
 
    acquireStackLock(address);
-MYLOG("begin");
+   MYLOG("begin");
 
    switch (shmem_msg_type)
    {
-      case PrL1PrL2DramDirectoryMSI::ShmemMsg::EX_REP:
-MYLOG("EX REP<%u @ %lx", sender, address);
-         processExRepFromDramDirectory(sender, requester, shmem_msg);
-         break;
-      case PrL1PrL2DramDirectoryMSI::ShmemMsg::SH_REP:
-MYLOG("SH REP<%u @ %lx", sender, address);
-         processShRepFromDramDirectory(sender, requester, shmem_msg);
-         break;
-      case PrL1PrL2DramDirectoryMSI::ShmemMsg::UPGRADE_REP:
-MYLOG("UPGR REP<%u @ %lx", sender, address);
-         processUpgradeRepFromDramDirectory(sender, requester, shmem_msg);
-         break;
-      case PrL1PrL2DramDirectoryMSI::ShmemMsg::INV_REQ:
-MYLOG("INV REQ<%u @ %lx", sender, address);
-         processInvReqFromDramDirectory(sender, shmem_msg);
-         break;
-      case PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REQ:
-MYLOG("FLUSH REQ<%u @ %lx", sender, address);
-         processFlushReqFromDramDirectory(sender, shmem_msg);
-         break;
-      case PrL1PrL2DramDirectoryMSI::ShmemMsg::WB_REQ:
-MYLOG("WB REQ<%u @ %lx", sender, address);
-         processWbReqFromDramDirectory(sender, shmem_msg);
-         break;
-      default:
-         LOG_PRINT_ERROR("Unrecognized msg type: %u", shmem_msg_type);
-         break;
+   case PrL1PrL2DramDirectoryMSI::ShmemMsg::EX_REP:
+      MYLOG("EX REP<%u @ %lx", sender, address);
+      processExRepFromDramDirectory(sender, requester, shmem_msg);
+      break;
+   case PrL1PrL2DramDirectoryMSI::ShmemMsg::SH_REP:
+      MYLOG("SH REP<%u @ %lx", sender, address);
+      processShRepFromDramDirectory(sender, requester, shmem_msg);
+      break;
+   case PrL1PrL2DramDirectoryMSI::ShmemMsg::UPGRADE_REP:
+      MYLOG("UPGR REP<%u @ %lx", sender, address);
+      processUpgradeRepFromDramDirectory(sender, requester, shmem_msg);
+      break;
+   case PrL1PrL2DramDirectoryMSI::ShmemMsg::INV_REQ:
+      MYLOG("INV REQ<%u @ %lx", sender, address);
+      processInvReqFromDramDirectory(sender, shmem_msg);
+      break;
+   case PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REQ:
+      MYLOG("FLUSH REQ<%u @ %lx", sender, address);
+      processFlushReqFromDramDirectory(sender, shmem_msg);
+      break;
+   case PrL1PrL2DramDirectoryMSI::ShmemMsg::WB_REQ:
+      MYLOG("WB REQ<%u @ %lx", sender, address);
+      processWbReqFromDramDirectory(sender, shmem_msg);
+      break;
+   default:
+      LOG_PRINT_ERROR("Unrecognized msg type: %u", shmem_msg_type);
+      break;
    }
 
-   if ((shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::EX_REP) || (shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::SH_REP)
-         || (shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::UPGRADE_REP) )
+   if ((shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::EX_REP) || (shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::SH_REP) || (shmem_msg_type == PrL1PrL2DramDirectoryMSI::ShmemMsg::UPGRADE_REP))
    {
       getLock().acquire(); // Keep lock when handling m_directory_waiters
-      while(! m_master->m_directory_waiters.empty(address)) {
-         CacheDirectoryWaiter* request = m_master->m_directory_waiters.front(address);
+      while (!m_master->m_directory_waiters.empty(address))
+      {
+         CacheDirectoryWaiter *request = m_master->m_directory_waiters.front(address);
          getLock().release();
 
          request->cache_cntlr->m_shmem_perf->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::PENDING_HIT);
@@ -1879,15 +1869,16 @@ MYLOG("WB REQ<%u @ %lx", sender, address);
          // Set the counter value in the USER thread to that in the SIM thread
          SubsecondTime t_core = request->cache_cntlr->getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_USER_THREAD),
                        t_here = getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD);
-         if (t_here > t_core) {
-MYLOG("adjusting time in #%u from %lu to %lu", request->cache_cntlr->m_core_id, t_core.getNS(), t_here.getNS());
+         if (t_here > t_core)
+         {
+            MYLOG("adjusting time in #%u from %lu to %lu", request->cache_cntlr->m_core_id, t_core.getNS(), t_here.getNS());
             /* Unless the requesting core is already ahead of us (it may very well be if this cache's master thread's cpu
                is falling behind), update its time */
             // TODO: update master thread time in initiateDirectoryAccess ?
             request->cache_cntlr->getShmemPerfModel()->setElapsedTime(ShmemPerfModel::_USER_THREAD, t_here);
          }
 
-MYLOG("wakeup user #%u", request->cache_cntlr->m_core_id);
+         MYLOG("wakeup user #%u", request->cache_cntlr->m_core_id);
          request->cache_cntlr->updateUncoreStatistics(shmem_msg->getWhere(), t_here);
 
          //releaseStackLock(address);
@@ -1903,51 +1894,48 @@ MYLOG("wakeup user #%u", request->cache_cntlr->m_core_id);
          }
 
          getLock().acquire();
-         MYLOG("about to dequeue request (%p) for address %lx", m_master->m_directory_waiters.front(address), address );
+         MYLOG("about to dequeue request (%p) for address %lx", m_master->m_directory_waiters.front(address), address);
          m_master->m_directory_waiters.dequeue(address);
          delete request;
       }
       getLock().release();
-MYLOG("woke up all");
+      MYLOG("woke up all");
    }
 
    releaseStackLock(address);
 
-MYLOG("done");
+   MYLOG("done");
 }
 
-void
-CacheCntlr::processExRepFromDramDirectory(core_id_t sender, core_id_t requester, PrL1PrL2DramDirectoryMSI::ShmemMsg* shmem_msg)
+void CacheCntlr::processExRepFromDramDirectory(core_id_t sender, core_id_t requester, PrL1PrL2DramDirectoryMSI::ShmemMsg *shmem_msg)
 {
    // Forward data from message to LLC, don't incur LLC data access time (writeback will be done asynchronously)
    //getMemoryManager()->incrElapsedTime(m_mem_component, CachePerfModel::ACCESS_CACHE_DATA_AND_TAGS);
-MYLOG("processExRepFromDramDirectory l%d", m_mem_component);
+   MYLOG("processExRepFromDramDirectory l%d", m_mem_component);
 
    IntPtr address = shmem_msg->getAddress();
-   Byte* data_buf = shmem_msg->getDataBuf();
+   Byte *data_buf = shmem_msg->getDataBuf();
 
    insertCacheBlock(address, CacheState::EXCLUSIVE, data_buf, requester, ShmemPerfModel::_SIM_THREAD);
-MYLOG("processExRepFromDramDirectory l%d end", m_mem_component);
+   MYLOG("processExRepFromDramDirectory l%d end", m_mem_component);
 }
 
-void
-CacheCntlr::processShRepFromDramDirectory(core_id_t sender, core_id_t requester, PrL1PrL2DramDirectoryMSI::ShmemMsg* shmem_msg)
+void CacheCntlr::processShRepFromDramDirectory(core_id_t sender, core_id_t requester, PrL1PrL2DramDirectoryMSI::ShmemMsg *shmem_msg)
 {
    // Forward data from message to LLC, don't incur LLC data access time (writeback will be done asynchronously)
    //getMemoryManager()->incrElapsedTime(m_mem_component, CachePerfModel::ACCESS_CACHE_DATA_AND_TAGS);
-MYLOG("processShRepFromDramDirectory l%d", m_mem_component);
+   MYLOG("processShRepFromDramDirectory l%d", m_mem_component);
 
    IntPtr address = shmem_msg->getAddress();
-   Byte* data_buf = shmem_msg->getDataBuf();
+   Byte *data_buf = shmem_msg->getDataBuf();
 
    // Insert Cache Block in L2 Cache
    insertCacheBlock(address, CacheState::SHARED, data_buf, requester, ShmemPerfModel::_SIM_THREAD);
 }
 
-void
-CacheCntlr::processUpgradeRepFromDramDirectory(core_id_t sender, core_id_t requester, PrL1PrL2DramDirectoryMSI::ShmemMsg* shmem_msg)
+void CacheCntlr::processUpgradeRepFromDramDirectory(core_id_t sender, core_id_t requester, PrL1PrL2DramDirectoryMSI::ShmemMsg *shmem_msg)
 {
-MYLOG("processShRepFromDramDirectory l%d", m_mem_component);
+   MYLOG("processShRepFromDramDirectory l%d", m_mem_component);
    // We now have the only copy. Change to a writeable state.
    IntPtr address = shmem_msg->getAddress();
    CacheState::cstate_t cstate = getCacheState(address);
@@ -1957,12 +1945,12 @@ MYLOG("processShRepFromDramDirectory l%d", m_mem_component);
       // I lost my copy because a concurrent UPGRADE REQ had INVed it, because the state
       // was Modified  when this request was processed, the data should be in the message
       // because it was FLUSHed (see dram_directory_cntlr.cc, MODIFIED case of the upgrade req)
-      Byte* data_buf = shmem_msg->getDataBuf();
+      Byte *data_buf = shmem_msg->getDataBuf();
       LOG_ASSERT_ERROR(data_buf, "Trying to upgrade a block that is now INV and no data in the shmem_msg");
 
       updateCacheBlock(address, CacheState::MODIFIED, Transition::UPGRADE, data_buf, ShmemPerfModel::_SIM_THREAD);
    }
-   else if  (cstate == CacheState::SHARED_UPGRADING)
+   else if (cstate == CacheState::SHARED_UPGRADING)
    {
       // Last-Level Cache received a upgrade REP, but multiple private lower-level caches might
       // still have a shared copy. Should invalidate all except the ones from the core that initiated
@@ -1972,22 +1960,21 @@ MYLOG("processShRepFromDramDirectory l%d", m_mem_component);
    }
    else
    {
-      LOG_PRINT_ERROR("Trying to upgrade a block that is not SHARED_UPGRADING but %c (%lx)",CStateString(cstate), address);
+      LOG_PRINT_ERROR("Trying to upgrade a block that is not SHARED_UPGRADING but %c (%lx)", CStateString(cstate), address);
    }
 }
 
-void
-CacheCntlr::processInvReqFromDramDirectory(core_id_t sender, PrL1PrL2DramDirectoryMSI::ShmemMsg* shmem_msg)
+void CacheCntlr::processInvReqFromDramDirectory(core_id_t sender, PrL1PrL2DramDirectoryMSI::ShmemMsg *shmem_msg)
 {
    IntPtr address = shmem_msg->getAddress();
-MYLOG("processInvReqFromDramDirectory l%d", m_mem_component);
+   MYLOG("processInvReqFromDramDirectory l%d", m_mem_component);
 
    CacheState::cstate_t cstate = getCacheState(address);
    if (cstate != CacheState::INVALID)
    {
       if (cstate != CacheState::SHARED)
       {
-        MYLOG("invalidating something else than SHARED: %c ", CStateString(cstate));
+         MYLOG("invalidating something else than SHARED: %c ", CStateString(cstate));
       }
       //assert(cstate == CacheState::SHARED);
       shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD));
@@ -2000,26 +1987,25 @@ MYLOG("processInvReqFromDramDirectory l%d", m_mem_component);
       shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_INV);
 
       getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::INV_REP,
-            MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-            shmem_msg->getRequester() /* requester */,
-            sender /* receiver */,
-            address,
-            NULL, 0,
-            HitWhere::UNKNOWN, shmem_msg->getPerf(), ShmemPerfModel::_SIM_THREAD);
+                                  MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
+                                  shmem_msg->getRequester() /* requester */,
+                                  sender /* receiver */,
+                                  address,
+                                  NULL, 0,
+                                  HitWhere::UNKNOWN, shmem_msg->getPerf(), ShmemPerfModel::_SIM_THREAD);
    }
    else
    {
       // Update Shared Mem perf counters for access to L2 Cache
       getMemoryManager()->incrElapsedTime(m_mem_component, CachePerfModel::ACCESS_CACHE_TAGS, ShmemPerfModel::_SIM_THREAD);
-MYLOG("invalid @ %lx, hoping eviction message is underway", address);
+      MYLOG("invalid @ %lx, hoping eviction message is underway", address);
    }
 }
 
-void
-CacheCntlr::processFlushReqFromDramDirectory(core_id_t sender, PrL1PrL2DramDirectoryMSI::ShmemMsg* shmem_msg)
+void CacheCntlr::processFlushReqFromDramDirectory(core_id_t sender, PrL1PrL2DramDirectoryMSI::ShmemMsg *shmem_msg)
 {
    IntPtr address = shmem_msg->getAddress();
-MYLOG("processFlushReqFromDramDirectory l%d", m_mem_component);
+   MYLOG("processFlushReqFromDramDirectory l%d", m_mem_component);
 
    CacheState::cstate_t cstate = getCacheState(address);
    if (cstate != CacheState::INVALID)
@@ -2037,26 +2023,25 @@ MYLOG("processFlushReqFromDramDirectory l%d", m_mem_component);
       shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_WB);
 
       getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REP,
-            MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-            shmem_msg->getRequester() /* requester */,
-            sender /* receiver */,
-            address,
-            data_buf, getCacheBlockSize(),
-            HitWhere::UNKNOWN, shmem_msg->getPerf(), ShmemPerfModel::_SIM_THREAD);
+                                  MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
+                                  shmem_msg->getRequester() /* requester */,
+                                  sender /* receiver */,
+                                  address,
+                                  data_buf, getCacheBlockSize(),
+                                  HitWhere::UNKNOWN, shmem_msg->getPerf(), ShmemPerfModel::_SIM_THREAD);
    }
    else
    {
       // Update Shared Mem perf counters for access to L2 Cache
       getMemoryManager()->incrElapsedTime(m_mem_component, CachePerfModel::ACCESS_CACHE_TAGS, ShmemPerfModel::_SIM_THREAD);
-MYLOG("invalid @ %lx, hoping eviction message is underway", address);
+      MYLOG("invalid @ %lx, hoping eviction message is underway", address);
    }
 }
 
-void
-CacheCntlr::processWbReqFromDramDirectory(core_id_t sender, PrL1PrL2DramDirectoryMSI::ShmemMsg* shmem_msg)
+void CacheCntlr::processWbReqFromDramDirectory(core_id_t sender, PrL1PrL2DramDirectoryMSI::ShmemMsg *shmem_msg)
 {
    IntPtr address = shmem_msg->getAddress();
-MYLOG("processWbReqFromDramDirectory l%d", m_mem_component);
+   MYLOG("processWbReqFromDramDirectory l%d", m_mem_component);
 
    CacheState::cstate_t cstate = getCacheState(address);
    if (cstate != CacheState::INVALID)
@@ -2077,30 +2062,27 @@ MYLOG("processWbReqFromDramDirectory l%d", m_mem_component);
       shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_FWD);
 
       getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::WB_REP,
-            MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-            shmem_msg->getRequester() /* requester */,
-            sender /* receiver */,
-            address,
-            data_buf, getCacheBlockSize(),
-            HitWhere::UNKNOWN, shmem_msg->getPerf(), ShmemPerfModel::_SIM_THREAD);
+                                  MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
+                                  shmem_msg->getRequester() /* requester */,
+                                  sender /* receiver */,
+                                  address,
+                                  data_buf, getCacheBlockSize(),
+                                  HitWhere::UNKNOWN, shmem_msg->getPerf(), ShmemPerfModel::_SIM_THREAD);
    }
    else
    {
       // Update Shared Mem perf counters for access to L2 Cache
       getMemoryManager()->incrElapsedTime(m_mem_component, CachePerfModel::ACCESS_CACHE_TAGS, ShmemPerfModel::_SIM_THREAD);
       shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_WB);
-MYLOG("invalid @ %lx, hoping eviction message is underway", address);
+      MYLOG("invalid @ %lx, hoping eviction message is underway", address);
    }
 }
-
-
 
 /*****************************************************************************
  * statistics functions
  *****************************************************************************/
 
-void
-CacheCntlr::updateCounters(Core::mem_op_t mem_op_type, IntPtr address, bool cache_hit, CacheState::cstate_t state, Prefetch::prefetch_type_t isPrefetch)
+void CacheCntlr::updateCounters(Core::mem_op_t mem_op_type, IntPtr address, bool cache_hit, CacheState::cstate_t state, Prefetch::prefetch_type_t isPrefetch)
 {
    /* If another miss to this cache line is still in progress:
       operationPermissibleinCache() will think it's a hit (so cache_hit == true) since the processing
@@ -2120,10 +2102,12 @@ CacheCntlr::updateCounters(Core::mem_op_t mem_op_type, IntPtr address, bool cach
       {
          stats.stores++;
          stats.stores_state[state]++;
-         if (! cache_hit || overlapping) {
+         if (!cache_hit || overlapping)
+         {
             stats.store_misses++;
             stats.store_misses_state[state]++;
-            if (overlapping) stats.store_overlapping_misses++;
+            if (overlapping)
+               stats.store_overlapping_misses++;
          }
       }
    }
@@ -2135,35 +2119,38 @@ CacheCntlr::updateCounters(Core::mem_op_t mem_op_type, IntPtr address, bool cach
       {
          stats.loads++;
          stats.loads_state[state]++;
-         if (! cache_hit) {
+         if (!cache_hit)
+         {
             stats.load_misses++;
             stats.load_misses_state[state]++;
-            if (overlapping) stats.load_overlapping_misses++;
+            if (overlapping)
+               stats.load_overlapping_misses++;
          }
       }
    }
 
    cleanupMshr();
 
-   #ifdef ENABLE_TRANSITIONS
+#ifdef ENABLE_TRANSITIONS
    transition(
-      address,
-      mem_op_type == Core::WRITE ? Transition::CORE_WR : (mem_op_type == Core::READ_EX ? Transition::CORE_RDEX : Transition::CORE_RD),
-      state,
-      mem_op_type == Core::READ && state != CacheState::MODIFIED ? CacheState::SHARED : CacheState::MODIFIED
-   );
-   #endif
+       address,
+       mem_op_type == Core::WRITE ? Transition::CORE_WR : (mem_op_type == Core::READ_EX ? Transition::CORE_RDEX : Transition::CORE_RD),
+       state,
+       mem_op_type == Core::READ && state != CacheState::MODIFIED ? CacheState::SHARED : CacheState::MODIFIED);
+#endif
 }
 
-void
-CacheCntlr::cleanupMshr()
+void CacheCntlr::cleanupMshr()
 {
    /* Keep only last 8 MSHR entries */
-   while(m_master->mshr.size() > 8) {
+   while (m_master->mshr.size() > 8)
+   {
       IntPtr address_min = 0;
       SubsecondTime time_min = SubsecondTime::MaxTime();
-      for(Mshr::iterator it = m_master->mshr.begin(); it != m_master->mshr.end(); ++it) {
-         if (it->second.t_complete < time_min) {
+      for (Mshr::iterator it = m_master->mshr.begin(); it != m_master->mshr.end(); ++it)
+      {
+         if (it->second.t_complete < time_min)
+         {
             address_min = it->first;
             time_min = it->second.t_complete;
          }
@@ -2172,12 +2159,12 @@ CacheCntlr::cleanupMshr()
    }
 }
 
-void
-CacheCntlr::transition(IntPtr address, Transition::reason_t reason, CacheState::cstate_t old_state, CacheState::cstate_t new_state)
+void CacheCntlr::transition(IntPtr address, Transition::reason_t reason, CacheState::cstate_t old_state, CacheState::cstate_t new_state)
 {
 #ifdef ENABLE_TRANSITIONS
    stats.transitions[old_state][new_state]++;
-   if (old_state == CacheState::INVALID) {
+   if (old_state == CacheState::INVALID)
+   {
       if (stats.seen.count(address) == 0)
          old_state = CacheState::INVALID_COLD;
       else if (stats.seen[address] == Transition::EVICT || stats.seen[address] == Transition::BACK_INVAL)
@@ -2190,8 +2177,7 @@ CacheCntlr::transition(IntPtr address, Transition::reason_t reason, CacheState::
 #endif
 }
 
-void
-CacheCntlr::updateUncoreStatistics(HitWhere::where_t hit_where, SubsecondTime now)
+void CacheCntlr::updateUncoreStatistics(HitWhere::where_t hit_where, SubsecondTime now)
 {
    // To be propagated through next-level refill
    m_last_remote_hit_where = hit_where;
@@ -2206,12 +2192,11 @@ CacheCntlr::updateUncoreStatistics(HitWhere::where_t hit_where, SubsecondTime no
 
       m_shmem_perf_global->add(m_shmem_perf);
       m_shmem_perf_totaltime += now - m_shmem_perf->getInitialTime();
-      m_shmem_perf_numrequests ++;
+      m_shmem_perf_numrequests++;
 
       m_shmem_perf->reset(SubsecondTime::Zero(), INVALID_CORE_ID);
    }
 }
-
 
 /*****************************************************************************
  * utility functions
@@ -2236,27 +2221,24 @@ CacheCntlr::updateUncoreStatistics(HitWhere::where_t hit_where, SubsecondTime no
    use getLock() for this. This is required for statistics updates, the directory waiters queue, etc.
 */
 
-void
-CacheCntlr::acquireLock(UInt64 address)
+void CacheCntlr::acquireLock(UInt64 address)
 {
-MYLOG("cache lock acquire %u # %u @ %lx", m_mem_component, m_core_id, address);
+   MYLOG("cache lock acquire %u # %u @ %lx", m_mem_component, m_core_id, address);
    assert(isFirstLevel());
    // Lock this L1 cache for the set containing <address>.
    lastLevelCache()->m_master->getSetLock(address)->acquire_shared(m_core_id);
 }
 
-void
-CacheCntlr::releaseLock(UInt64 address)
+void CacheCntlr::releaseLock(UInt64 address)
 {
-MYLOG("cache lock release %u # %u @ %lx", m_mem_component, m_core_id, address);
+   MYLOG("cache lock release %u # %u @ %lx", m_mem_component, m_core_id, address);
    assert(isFirstLevel());
    lastLevelCache()->m_master->getSetLock(address)->release_shared(m_core_id);
 }
 
-void
-CacheCntlr::acquireStackLock(UInt64 address, bool this_is_locked)
+void CacheCntlr::acquireStackLock(UInt64 address, bool this_is_locked)
 {
-MYLOG("stack lock acquire %u # %u @ %lx", m_mem_component, m_core_id, address);
+   MYLOG("stack lock acquire %u # %u @ %lx", m_mem_component, m_core_id, address);
    // Lock the complete stack for the set containing <address>
    if (this_is_locked)
       // If two threads decide to upgrade at the same time, we could deadlock.
@@ -2266,74 +2248,66 @@ MYLOG("stack lock acquire %u # %u @ %lx", m_mem_component, m_core_id, address);
       lastLevelCache()->m_master->getSetLock(address)->acquire_exclusive();
 }
 
-void
-CacheCntlr::releaseStackLock(UInt64 address, bool this_is_locked)
+void CacheCntlr::releaseStackLock(UInt64 address, bool this_is_locked)
 {
-MYLOG("stack lock release %u # %u @ %lx", m_mem_component, m_core_id, address);
+   MYLOG("stack lock release %u # %u @ %lx", m_mem_component, m_core_id, address);
    if (this_is_locked)
       lastLevelCache()->m_master->getSetLock(address)->downgrade(m_core_id);
    else
       lastLevelCache()->m_master->getSetLock(address)->release_exclusive();
 }
 
-
-CacheCntlr*
+CacheCntlr *
 CacheCntlr::lastLevelCache()
 {
-   if (! m_last_level) {
+   if (!m_last_level)
+   {
       /* Find last-level cache */
-      CacheCntlr* last_level = this;
-      while(last_level->m_next_cache_cntlr)
+      CacheCntlr *last_level = this;
+      while (last_level->m_next_cache_cntlr)
          last_level = last_level->m_next_cache_cntlr;
       m_last_level = last_level;
    }
    return m_last_level;
 }
 
-bool
-CacheCntlr::isShared(core_id_t core_id)
+bool CacheCntlr::isShared(core_id_t core_id)
 {
    core_id_t core_id_master = core_id - core_id % m_shared_cores;
    return core_id_master == m_core_id_master;
 }
 
-
 /*** threads ***/
 
-void
-CacheCntlr::wakeUpUserThread(Semaphore* user_thread_sem)
+void CacheCntlr::wakeUpUserThread(Semaphore *user_thread_sem)
 {
    (user_thread_sem ? user_thread_sem : m_user_thread_sem)->signal();
 }
 
-void
-CacheCntlr::waitForUserThread(Semaphore* network_thread_sem)
+void CacheCntlr::waitForUserThread(Semaphore *network_thread_sem)
 {
    (network_thread_sem ? network_thread_sem : m_network_thread_sem)->wait();
 }
 
-void
-CacheCntlr::waitForNetworkThread()
+void CacheCntlr::waitForNetworkThread()
 {
    m_user_thread_sem->wait();
 }
 
-void
-CacheCntlr::wakeUpNetworkThread()
+void CacheCntlr::wakeUpNetworkThread()
 {
    m_network_thread_sem->signal();
 }
 
-Semaphore*
+Semaphore *
 CacheCntlr::getUserThreadSemaphore()
 {
    return m_user_thread_sem;
 }
 
-Semaphore*
+Semaphore *
 CacheCntlr::getNetworkThreadSemaphore()
 {
    return m_network_thread_sem;
 }
-
-}
+} // namespace ParametricDramDirectoryMSI

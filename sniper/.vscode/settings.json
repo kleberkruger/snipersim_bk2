@@ -12,6 +12,8 @@
     "unordered_set": "cpp",
     "vector": "cpp",
     "ostream": "cpp",
-    "*.in": "cpp"
+    "*.in": "cpp",
+    "fstream": "cpp",
+    "istream": "cpp"
   }
 }

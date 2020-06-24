@@ -348,7 +348,8 @@ namespace ParametricDramDirectoryMSI
 
          CacheCntlr* lastLevelCache(void);
 
-         void printCache(); // Added by Kleber Kruger
+         void flushBlock(CacheBlockInfo *block_info); // Added by Kleber Kruger
+         void printCache();                           // Added by Kleber Kruger
 
       public:
 

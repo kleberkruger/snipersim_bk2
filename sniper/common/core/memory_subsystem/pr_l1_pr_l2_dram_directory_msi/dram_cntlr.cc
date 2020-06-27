@@ -81,7 +81,7 @@ DramCntlr::getDataFromDram(IntPtr address, core_id_t requester, Byte* data_buf, 
 boost::tuple<SubsecondTime, HitWhere::where_t>
 DramCntlr::putDataToDram(IntPtr address, core_id_t requester, Byte* data_buf, SubsecondTime now)
 {
-   // printf("putDataToDram (dram_cntrl): %lu\n", address);
+   printf("putDataToDram (dram_cntrl): %lu\n", address);
 
    if (Sim()->getFaultinjectionManager())
    {

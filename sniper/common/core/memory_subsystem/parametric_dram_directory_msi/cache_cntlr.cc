@@ -1183,6 +1183,7 @@ CacheCntlr::processExReqToDirectory(IntPtr address)
    LOG_ASSERT_ERROR (cstate != CacheState::SHARED, "ExReq for a Cacheblock in S, should be a UpgradeReq");
    assert((cstate == CacheState::INVALID));
 
+   // printf("processExReqToDirectory\n");
    getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::EX_REQ,
          MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
          m_core_id_master /* requester */,
@@ -1202,6 +1203,7 @@ CacheCntlr::processUpgradeReqToDirectory(IntPtr address, ShmemPerf *perf, ShmemP
    assert(cstate == CacheState::SHARED);
    setCacheState(address, CacheState::SHARED_UPGRADING);
 
+   // printf("processUpgradeReqToDirectory\n");
    getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::UPGRADE_REQ,
          MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
          m_core_id_master /* requester */,
@@ -1215,6 +1217,7 @@ void
 CacheCntlr::processShReqToDirectory(IntPtr address)
 {
 MYLOG("SH REQ @ %lx", address);
+   // printf("processShReqToDirectory\n");
    getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::SH_REQ,
          MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
          m_core_id_master /* requester */,
@@ -1496,6 +1499,7 @@ MYLOG("evicting @%lx", evict_address);
          {
             // Send back the data also
 MYLOG("evict FLUSH %lx", evict_address);
+            // printf("insertCacheBlock 1\n");
             getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REP,
                   MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
                   m_core_id /* requester */,
@@ -1510,6 +1514,7 @@ MYLOG("evict INV %lx", evict_address);
             LOG_ASSERT_ERROR(evict_block_info.getCState() == CacheState::SHARED || evict_block_info.getCState() == CacheState::EXCLUSIVE,
                   "evict_address(0x%x), evict_state(%u)",
                   evict_address, evict_block_info.getCState());
+            // printf("insertCacheBlock 2\n");
             getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::INV_REP,
                   MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
                   m_core_id /* requester */,
@@ -1748,28 +1753,44 @@ void CacheCntlr::flush()
    for (UInt32 i = 0; i < m_master->m_cache->getNumSets(); i++) 
    { 
       for (UInt32 j = 0; j < m_master->m_cache->getAssociativity(); j++) 
-         flushBlock(m_master->m_cache->peekBlock(i, j));
+      {
+         CacheBlockInfo *block_info = m_master->m_cache->peekBlock(i, j);
+         if (block_info->getCState() == CacheState::MODIFIED)
+            flushBlock(block_info);
+      }
    }
    printCache();
-   exit(0);
+   // exit(0);
 }
 
 void CacheCntlr::flushBlock(CacheBlockInfo *block_info)
 {
    IntPtr address = m_master->m_cache->tagToAddress(block_info->getTag());
-
-   // Flush the line
    Byte data_buf[getCacheBlockSize()];
-   updateCacheBlock(address, CacheState::INVALID, Transition::COHERENCY /* Transition::UPGRADE */,
-                    data_buf /* NULL */, ShmemPerfModel::_SIM_THREAD);
 
-   // shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_WB);
-   getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REP,
-                               MemComponent::LAST_LEVEL_CACHE, MemComponent::DRAM,
-                               m_core_id_master, m_core_id_master,
-                               address,
-                               data_buf, getCacheBlockSize(),
-                               HitWhere::UNKNOWN, m_shmem_perf, ShmemPerfModel::_SIM_THREAD);
+   PrL1PrL2DramDirectoryMSI::ShmemMsg shmem_msg(PrL1PrL2DramDirectoryMSI::ShmemMsg::DRAM_WRITE_REQ,
+                                                MemComponent::TAG_DIR, MemComponent::DRAM,
+                                                m_core_id, address, data_buf, getCacheBlockSize(), &m_dummy_shmem_perf);
+
+   // printf("address: %lu\n", address);
+   // handleMsgFromDramDirectory(m_core_id, &shmem_msg);
+
+   // processFlushReqFromDramDirectory(m_core_id, &shmem_msg);
+   // processWbReqFromDramDirectory(m_core_id, &shmem_msg);
+
+   // Write-Back the line
+   // Byte data_buf[getCacheBlockSize()];
+   // updateCacheBlock(address, CacheState::SHARED, Transition::COHERENCY, data_buf, ShmemPerfModel::_SIM_THREAD);
+
+   // getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REP,
+   //                             MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
+   //                             m_core_id /* requester */,
+   //                             m_core_id /* receiver */,
+   //                             address,
+   //                             data_buf, getCacheBlockSize(),
+   //                             HitWhere::UNKNOWN, &m_dummy_shmem_perf, ShmemPerfModel::_SIM_THREAD);
+   
+   getMemoryManager()->getDramCntlr()->handleMsgFromTagDirectory(m_core_id, &shmem_msg);
 }
 
 void CacheCntlr::printCache()
@@ -1783,7 +1804,11 @@ void CacheCntlr::printCache()
    {
       printf("%4d ", i);
       for (UInt32 j = 0; j < m_master->m_cache->getAssociativity(); j++)
-         printf("[%s] ", m_master->m_cache->peekBlock(i, j)->getCState() == CacheState::MODIFIED ? "X" : " ");
+      {
+         auto cstate = m_master->m_cache->peekBlock(i, j)->getCState();
+         printf("[%c] ", cstate != CacheState::INVALID ? CStateString(cstate) : ' ');
+      }
+         
       printf("\n");
    }
    printf("\n\n");
@@ -1986,6 +2011,7 @@ void CacheCntlr::processInvReqFromDramDirectory(core_id_t sender, PrL1PrL2DramDi
 
       shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_INV);
 
+      // printf("processInvReqFromDramDirectory\n");
       getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::INV_REP,
                                   MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
                                   shmem_msg->getRequester() /* requester */,
@@ -2022,6 +2048,7 @@ void CacheCntlr::processFlushReqFromDramDirectory(core_id_t sender, PrL1PrL2Dram
 
       shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_WB);
 
+      // printf("processFlushReqFromDramDirectory\n");
       getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REP,
                                   MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
                                   shmem_msg->getRequester() /* requester */,
@@ -2061,6 +2088,7 @@ void CacheCntlr::processWbReqFromDramDirectory(core_id_t sender, PrL1PrL2DramDir
 
       shmem_msg->getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_FWD);
 
+      // printf("processWbReqFromDramDirectory\n");
       getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::WB_REP,
                                   MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
                                   shmem_msg->getRequester() /* requester */,

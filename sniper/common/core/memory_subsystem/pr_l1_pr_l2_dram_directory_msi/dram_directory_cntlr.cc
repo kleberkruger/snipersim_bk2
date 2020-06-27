@@ -155,6 +155,26 @@ DramDirectoryCntlr::handleMsgFromL2Cache(core_id_t sender, ShmemMsg* shmem_msg)
          break;
       }
 
+      case ShmemMsg::WB_REQ:
+      {
+         MYLOG("S REQ<%u @ %lx", sender, address);
+
+         // Add request onto a queue
+         ShmemReq *shmem_req = new ShmemReq(shmem_msg, msg_time);
+
+         m_dram_directory_req_queue_list->enqueue(address, shmem_req);
+         MYLOG("ENqueued S REQ for address %lx", address);
+         if (m_dram_directory_req_queue_list->size(address) == 1)
+         {
+            processWbReqFromL2Cache(shmem_req);
+         }
+         else
+         {
+            MYLOG("S REQ (%lx) not handled because of outstanding request in the queue", address);
+         }
+         break;
+      }
+
       case ShmemMsg::INV_REP:
          MYLOG("INV REP<%u @ %lx", sender, address);
          processInvRepFromL2Cache(sender, shmem_msg);
@@ -162,11 +182,13 @@ DramDirectoryCntlr::handleMsgFromL2Cache(core_id_t sender, ShmemMsg* shmem_msg)
 
       case ShmemMsg::FLUSH_REP:
          MYLOG("FLUSH REP<%u @ %lx", sender, address);
+         // printf("FLUSH REP<%u @ %lx\n", sender, address);
          processFlushRepFromL2Cache(sender, shmem_msg);
          break;
 
       case ShmemMsg::WB_REP:
          MYLOG("WB REP<%u @ %lx", sender, address);
+         printf("WB REP<%u @ %lu\n", sender, address);
          processWbRepFromL2Cache(sender, shmem_msg);
          break;
 
@@ -600,6 +622,55 @@ DramDirectoryCntlr::processShReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_da
       default:
          LOG_PRINT_ERROR("Unsupported Directory State: %u", curr_dstate);
          break;
+   }
+   MYLOG("End @ %lx", address);
+}
+
+void DramDirectoryCntlr::processWbReqFromL2Cache(ShmemReq *shmem_req, Byte *cached_data_buf)
+{
+   MYLOG("Start @ %lx", address);
+   MYLOG("processWbReqFromL2Cache @ %lu\n", address);
+
+   IntPtr address = shmem_req->getShmemMsg()->getAddress();
+   core_id_t requester = shmem_req->getShmemMsg()->getRequester();
+
+   updateShmemPerf(shmem_req);
+
+   // AQUI COMEÇA!!!
+   SubsecondTime now = getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD);
+
+   DirectoryEntry *directory_entry = m_dram_directory_cache->getDirectoryEntry(address);
+   assert(directory_entry);
+
+   DirectoryBlockInfo *directory_block_info = directory_entry->getDirectoryBlockInfo();
+
+   //assert(directory_block_info->getDState() == DirectoryState::MODIFIED);
+   // assert(directory_entry->hasSharer(sender));
+
+   directory_entry->setOwner(INVALID_CORE_ID);
+   directory_block_info->setDState(DirectoryState::SHARED);
+
+   printf("%lu: %d\n", address, m_dram_directory_req_queue_list->size(address));
+
+   if (m_dram_directory_req_queue_list->size(address) != 0)
+   {
+      ShmemReq *shmem_req = m_dram_directory_req_queue_list->front(address);
+
+      // Update Time
+      shmem_req->updateTime(now);
+      getShmemPerfModel()->updateElapsedTime(shmem_req->getTime(), ShmemPerfModel::_SIM_THREAD);
+
+      shmem_req->getShmemMsg()->getPerf()->updateTime(now);
+      updateShmemPerf(shmem_req, ShmemPerf::TD_ACCESS);
+
+      LOG_ASSERT_ERROR(shmem_req->getShmemMsg()->getMsgType() == ShmemMsg::SH_REQ,
+                       "Address(0x%x), Req(%u)",
+                       address, shmem_req->getShmemMsg()->getMsgType());
+      processShReqFromL2Cache(shmem_req, shmem_req->getShmemMsg()->getDataBuf());
+   }
+   else
+   {
+      LOG_PRINT_ERROR("Should not reach here");
    }
    MYLOG("End @ %lx", address);
 }
@@ -1172,6 +1243,8 @@ DramDirectoryCntlr::processWbRepFromL2Cache(core_id_t sender, ShmemMsg* shmem_ms
 
    directory_entry->setOwner(INVALID_CORE_ID);
    directory_block_info->setDState(DirectoryState::SHARED);
+
+   printf("%lu: %d\n", address, m_dram_directory_req_queue_list->size(address));
 
    if (m_dram_directory_req_queue_list->size(address) != 0)
    {

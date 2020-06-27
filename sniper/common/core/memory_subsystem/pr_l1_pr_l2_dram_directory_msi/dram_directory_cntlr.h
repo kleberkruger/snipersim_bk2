@@ -48,6 +48,7 @@ namespace PrL1PrL2DramDirectoryMSI
          void processNextReqFromL2Cache(IntPtr address);
          void processExReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_data_buf = NULL);
          void processShReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_data_buf = NULL);
+         void processWbReqFromL2Cache(ShmemReq *shmem_req, Byte *cached_data_buf = NULL); // Added by Kleber Kruger
          void retrieveDataAndSendToL2Cache(ShmemMsg::msg_t reply_msg_type, core_id_t receiver, IntPtr address, Byte* cached_data_buf, ShmemMsg *orig_shmem_msg);
          void processDRAMReply(core_id_t sender, ShmemMsg* shmem_msg);
 

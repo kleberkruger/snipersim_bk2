@@ -63,6 +63,7 @@ RUN apt-get update \
     # Helper utilities
     gdb \
     git \
+    doxygen \
     #
     # For install Python 3
     python3 \

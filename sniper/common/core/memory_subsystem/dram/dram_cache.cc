@@ -88,7 +88,7 @@ boost::tuple<SubsecondTime, HitWhere::where_t>
 DramCache::putDataToDram(IntPtr address, core_id_t requester, Byte* data_buf, SubsecondTime now)
 {
    std::pair<bool, SubsecondTime> res = doAccess(Cache::STORE, address, requester, data_buf, now, NULL);
-   // printf("putDataToDram (dram_cache): %lu\n", address);
+   printf("putDataToDram (dram_cache): %lu\n", address);
 
    if (!res.first)
       ++m_write_misses;
@@ -142,7 +142,7 @@ DramCache::doAccess(Cache::access_t access, IntPtr address, core_id_t requester,
          boost::tie(dram_latency, hit_where) = m_dram_cntlr->getDataFromDram(address, requester, data_buf, now + latency, perf);
          latency += dram_latency;
       }
-         // For STOREs, we only do complete cache lines so we don't need to read from DRAM
+      // For STOREs, we only do complete cache lines so we don't need to read from DRAM
 
       insertLine(access, address, requester, data_buf, now + latency);
    }
@@ -161,6 +161,7 @@ DramCache::insertLine(Cache::access_t access, IntPtr address, core_id_t requeste
    PrL1CacheBlockInfo evict_block_info;
    Byte evict_buf[m_cache_block_size];
 
+   printf("insertLine\n");
    m_cache->insertSingleLine(address, data_buf,
       &eviction, &evict_address, &evict_block_info, evict_buf,
       now);

@@ -6,8 +6,9 @@ constexpr const char *const CacheSetKruger::states[];
 
 CacheSetKruger::CacheSetKruger(
     CacheBase::cache_t cache_type,
-    UInt32 associativity, UInt32 blocksize, CacheSetInfoLRU *set_info, UInt8 num_attempts)
-    : CacheSet(cache_type, associativity, blocksize), m_num_attempts(num_attempts), m_set_info(set_info)
+    UInt32 associativity, UInt32 blocksize, CacheSetInfoLRU *set_info, UInt8 num_attempts, float percentage_to_wb)
+    : CacheSet(cache_type, associativity, blocksize), m_num_attempts(num_attempts), m_set_info(set_info),
+      m_percentage_to_wb(percentage_to_wb)
 {
     m_lru_bits = new UInt8[m_associativity];
     for (UInt32 i = 0; i < m_associativity; i++)
@@ -18,6 +19,39 @@ CacheSetKruger::~CacheSetKruger()
 {
     delete[] m_lru_bits;
 }
+
+// void CacheSetKruger::insert(CacheBlockInfo *cache_block_info, Byte *fill_buff, bool *eviction, CacheBlockInfo *evict_block_info, Byte *evict_buff, CacheCntlr *cntlr)
+// {
+//     // This replacement strategy does not take into account the fact that
+//     // cache blocks can be voluntarily flushed or invalidated due to another write request
+//     const UInt32 index = getReplacementIndex(cntlr);
+//     assert(index < m_associativity);
+
+//     Sim();
+
+//     printf("insert in LRU");
+
+//     assert(eviction != NULL);
+
+//     if (m_cache_block_info_array[index]->isValid())
+//     {
+//         *eviction = true;
+//         // FIXME: This is a hack. I dont know if this is the best way to do
+//         evict_block_info->clone(m_cache_block_info_array[index]);
+//         if (evict_buff != NULL && m_blocks != NULL)
+//             memcpy((void *)evict_buff, &m_blocks[index * m_blocksize], m_blocksize);
+//     }
+//     else
+//     {
+//         *eviction = false;
+//     }
+
+//     // FIXME: This is a hack. I dont know if this is the best way to do
+//     m_cache_block_info_array[index]->clone(cache_block_info);
+
+//     if (fill_buff != NULL && m_blocks != NULL)
+//         memcpy(&m_blocks[index * m_blocksize], (void *)fill_buff, m_blocksize);
+// }
 
 // UInt32
 // CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
@@ -81,8 +115,8 @@ CacheSetKruger::~CacheSetKruger()
 UInt32
 CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
 {
-    bool all_modified = true;
-    UInt32 index = 0;
+    UInt32 index = 0, num_modified = 0;
+    UInt8 max_bits = 0;
 
     // First try to find an invalid block
     for (UInt32 i = 0; i < m_associativity; i++)
@@ -95,18 +129,29 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
         }
 
         // Find the last recently used between modified blocks
-        if (m_lru_bits[i] > m_lru_bits[index] && isValidReplacement(i))
+        if (m_lru_bits[i] > max_bits && isValidReplacement(i))
+        {
             index = i;
+            max_bits = m_lru_bits[i];
+        }
 
         // Check if all are modified
-        if (!(m_cache_block_info_array[i]->getCState() == CacheState::MODIFIED))
-            all_modified = false;
+        if (m_cache_block_info_array[i]->getCState() == CacheState::MODIFIED)
+            num_modified++;
     }
 
-    if (all_modified)
+    if (num_modified >= m_associativity * m_percentage_to_wb)
     {
-        cntlr->flush();
-        return 0;
+        max_bits = m_associativity - 1;
+        // Return the oldest block among the modified ones
+        for (UInt32 i = 0; i < m_associativity; i++)
+        {
+            if (m_lru_bits[i] == max_bits)
+            {
+                cntlr->flush();
+                return i;
+            }
+        }
     }
 
     LOG_ASSERT_ERROR(index < m_associativity, "Error Finding LRU bits");
@@ -135,7 +180,7 @@ void CacheSetKruger::moveToMRU(UInt32 accessed_index)
 
 bool CacheSetKruger::isValidReplacement(UInt32 index)
 {
-    CacheState::cstate_t state = m_cache_block_info_array[index]->getCState(); 
+    CacheState::cstate_t state = m_cache_block_info_array[index]->getCState();
     return (state != CacheState::SHARED_UPGRADING && state != CacheState::MODIFIED);
 }
 

@@ -131,7 +131,7 @@ DramDirectoryCache::replaceDirectoryEntry(IntPtr replaced_address, IntPtr addres
    }
 
    // Should not reach here
-   LOG_PRINT_ERROR("");
+   LOG_PRINT_ERROR("Should not reach here");
 }
 
 void
@@ -150,7 +150,7 @@ DramDirectoryCache::invalidateDirectoryEntry(IntPtr address)
    }
 
    // Should not reach here
-   LOG_PRINT_ERROR("");
+   LOG_PRINT_ERROR("Should not reach here");
 }
 
 void

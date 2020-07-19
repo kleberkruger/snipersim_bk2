@@ -35,6 +35,8 @@ class Cache : public CacheBase
       UInt64* m_set_usage_hist;
       #endif
 
+      CacheBase::ReplacementPolicy m_replacement_policy; // Added by Kleber Kruger
+
    public:
 
       // constructors/destructors
@@ -68,6 +70,8 @@ class Cache : public CacheBase
 
       void enable() { m_enabled = true; }
       void disable() { m_enabled = false; }
+
+      CacheBase::ReplacementPolicy getReplacementPolicy() { return m_replacement_policy; } // Added by Kleber Kruger
 };
 
 template <class T>

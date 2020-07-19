@@ -104,13 +104,12 @@ CacheSet::insert(CacheBlockInfo* cache_block_info, Byte* fill_buff, bool* evicti
    const UInt32 index = getReplacementIndex(cntlr);
    assert(index < m_associativity);
 
-   Sim();
-
    assert(eviction != NULL);
 
    if (m_cache_block_info_array[index]->isValid())
    {
       *eviction = true;
+
       // FIXME: This is a hack. I dont know if this is the best way to do
       evict_block_info->clone(m_cache_block_info_array[index]);
       if (evict_buff != NULL && m_blocks != NULL)
@@ -173,7 +172,7 @@ CacheSet::createCacheSet(String cfgname, core_id_t core_id,
       case CacheBase::KRUGER: // Kruger added.
       // case CacheBase::KRUGER_QBS: // Kruger added.
          // return new CacheSetKruger(cache_type, associativity, blocksize);
-         return new CacheSetKruger(cache_type, associativity, blocksize, dynamic_cast<CacheSetInfoLRU *>(set_info), getNumQBSAttempts(policy, cfgname, core_id));
+         return new CacheSetKruger(cache_type, associativity, blocksize, dynamic_cast<CacheSetInfoLRU *>(set_info), getNumQBSAttempts(policy, cfgname, core_id), 1);
 
       default:
          LOG_PRINT_ERROR("Unrecognized Cache Replacement Policy: %i", policy);

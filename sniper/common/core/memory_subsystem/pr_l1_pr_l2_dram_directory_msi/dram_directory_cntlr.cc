@@ -1281,19 +1281,13 @@ DramDirectoryCntlr::processWbRepFromL2Cache(core_id_t sender, ShmemMsg* shmem_ms
       // // Added by Kleber Kruger
       // {
       //    SubsecondTime now = getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD);
-
-      //    MYLOG("Start @ %lx", address);
-
       //    DirectoryEntry *directory_entry = m_dram_directory_cache->getDirectoryEntry(address);
       //    assert(directory_entry);
-
       //    DirectoryBlockInfo *directory_block_info = directory_entry->getDirectoryBlockInfo();
-
       //    assert(directory_entry->hasSharer(sender));
       //    directory_entry->removeSharer(sender);
       //    directory_entry->setForwarder(INVALID_CORE_ID);
       //    directory_entry->setOwner(INVALID_CORE_ID);
-
       //    // could be that this is a FLUSH to force a core with S-state to to write back clean data to avoid a memory access
       //    // directory_block_info->setDState(DirectoryState::UNCACHED);
       // }

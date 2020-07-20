@@ -404,7 +404,7 @@ namespace ParametricDramDirectoryMSI
          bool isInLowerLevelCache(CacheBlockInfo *block_info);
          void incrementQBSLookupCost();
 
-         void flush(); // Added by Kleber Kruger
+         void checkpoint(); // Added by Kleber Kruger
 
          void enable() { m_master->m_cache->enable(); }
          void disable() { m_master->m_cache->disable(); }

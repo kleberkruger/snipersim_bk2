@@ -1774,34 +1774,8 @@ CacheCntlr::incrementQBSLookupCost()
    atomic_add_subsecondtime(stats.qbs_query_latency, latency);
 }
 
-void CacheCntlr::flush()
+void CacheCntlr::checkpoint()
 {
-   // printf("Flush\n");
-   // printCache();
-   // for (UInt32 i = 0; i < m_master->m_cache->getNumSets(); i++)
-   // {
-   //    for (UInt32 j = 0; j < m_master->m_cache->getAssociativity(); j++)
-   //    {
-   //       CacheBlockInfo *block_info = m_master->m_cache->peekBlock(i, j);
-   //       if (block_info->getCState() == CacheState::MODIFIED)
-   //       {
-   //          IntPtr evict_address = m_master->m_cache->tagToAddress(block_info->getTag());
-   //          UInt32 home_node_id = getHome(evict_address);
-   //          Byte evict_buf[getCacheBlockSize()];
-   //          // memcpy((void *)evict_buf, &m_blocks[index * getCacheBlockSize()], getCacheBlockSize());
-   //          getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REP,
-   //                                      MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-   //                                      m_core_id /* requester */,
-   //                                      home_node_id /* receiver */,
-   //                                      evict_address,
-   //                                      evict_buf, getCacheBlockSize(),
-   //                                      HitWhere::UNKNOWN, &m_dummy_shmem_perf, ShmemPerfModel::_SIM_THREAD);
-   //       }
-   //    }
-   // }
-   // printCache();
-   // printf("OK\n");
-
    printCache(); 
    for (UInt32 i = 0; i < m_master->m_cache->getNumSets(); i++) 
    { 
@@ -1825,84 +1799,15 @@ void CacheCntlr::flushBlock(CacheBlockInfo *block_info)
 
    getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::CP_REP,
                                MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-                               m_core_id_master /* requester */,
-                               getHome(address) /* receiver */,
-                               address,
-                               data_buf, getCacheBlockSize(),
+                               m_core_id_master, getHome(address), /* requester and receiver */
+                               address, data_buf, getCacheBlockSize(),
                                HitWhere::UNKNOWN, &m_dummy_shmem_perf, ShmemPerfModel::_SIM_THREAD);
 
-   // {
-   //    // Flush the line
-   //    updateCacheBlock(address, CacheState::SHARED, Transition::COHERENCY, data_buf, ShmemPerfModel::_SIM_THREAD);
-
-   //    getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::WB_REP,
-   //                                MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-   //                                m_core_id_master /* requester */,
-   //                                m_core_id_master /* receiver */,
-   //                                address,
-   //                                data_buf, getCacheBlockSize(),
-   //                                HitWhere::UNKNOWN, &m_dummy_shmem_perf, ShmemPerfModel::_SIM_THREAD);
-   // }
-
-   // // 1) Tentativa (Flush)
-   // PrL1PrL2DramDirectoryMSI::ShmemMsg shmem_msg(PrL1PrL2DramDirectoryMSI::ShmemMsg::FLUSH_REQ,
-   //                                              MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-   //                                              m_core_id, address, data_buf, getCacheBlockSize(), &m_dummy_shmem_perf);
-   // // handleMsgFromDramDirectory(m_core_id, &shmem_msg);
-   // processFlushReqFromDramDirectory(m_core_id, &shmem_msg);
-
-   // // 2) Tentativa (WB)
-   // PrL1PrL2DramDirectoryMSI::ShmemMsg shmem_msg(PrL1PrL2DramDirectoryMSI::ShmemMsg::WB_REQ,
-   //                                              MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-   //                                              m_core_id, address, data_buf, getCacheBlockSize(), &m_dummy_shmem_perf);
-   // processWbReqFromDramDirectory(m_core_id, &shmem_msg);
-
-   // // 3) Tentativa
-   // updateCacheBlock(address, CacheState::SHARED, ParametricDramDirectoryMSI::Transition::COHERENCY, data_buf, ShmemPerfModel::_SIM_THREAD);
-
-   // // 4) Tentativa
-   // PrL1PrL2DramDirectoryMSI::ShmemMsg shmem_msg(PrL1PrL2DramDirectoryMSI::ShmemMsg::DRAM_WRITE_REQ,
-   //                                              MemComponent::TAG_DIR, MemComponent::DRAM,
-   //                                              m_core_id, address, data_buf, getCacheBlockSize(), &m_dummy_shmem_perf);
-   // getMemoryManager()->getDramCntlr()->handleMsgFromTagDirectory(m_core_id, &shmem_msg);
-
-   // // 5) Tentativa
-   // processShReqToDirectory(address);
-   // getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::SH_REQ,
+   // getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::CP_REQ,
    //                             MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-   //                             m_core_id_master /* requester */,
-   //                             getHome(address) /* receiver */,
-   //                             address,
-   //                             NULL, 0,
-   //                             HitWhere::UNKNOWN, m_shmem_perf, ShmemPerfModel::_SIM_THREAD);
-
-   // // 6) Tentativa
-   // {
-   //    IntPtr address = m_master->m_cache->tagToAddress(block_info->getTag());
-   //    Byte data_buf[getCacheBlockSize()];
-   //    printf("flushBlock: %lu\n", address);
-   //    PrL1PrL2DramDirectoryMSI::ShmemMsg shmem_msg(PrL1PrL2DramDirectoryMSI::ShmemMsg::WB_REQ,
-   //                                                 MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-   //                                                 m_core_id, address, data_buf, getCacheBlockSize(), &m_dummy_shmem_perf);
-   //    shmem_msg.getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD));
-   //    // Update Shared Mem perf counters for access to L2 Cache
-   //    getMemoryManager()->incrElapsedTime(m_mem_component, CachePerfModel::ACCESS_CACHE_DATA_AND_TAGS, ShmemPerfModel::_SIM_THREAD);
-   //    // Write-Back the line
-   //    updateCacheBlock(address, CacheState::SHARED, Transition::COHERENCY, data_buf, ShmemPerfModel::_SIM_THREAD);
-   //    shmem_msg.getPerf()->updateTime(getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD), ShmemPerf::REMOTE_CACHE_FWD);
-   //    getMemoryManager()->sendMsg(PrL1PrL2DramDirectoryMSI::ShmemMsg::WB_REP,
-   //                                  MemComponent::LAST_LEVEL_CACHE, MemComponent::TAG_DIR,
-   //                                  shmem_msg.getRequester() /* requester */,
-   //                                  m_core_id /* receiver */,
-   //                                  address,
-   //                                  data_buf, getCacheBlockSize(),
-   //                                  HitWhere::UNKNOWN, shmem_msg.getPerf(), ShmemPerfModel::_SIM_THREAD);
-   //    // Write in DRAM
-   //    PrL1PrL2DramDirectoryMSI::ShmemMsg shmem_msg2(PrL1PrL2DramDirectoryMSI::ShmemMsg::DRAM_WRITE_REQ,
-   //                                                 MemComponent::TAG_DIR, MemComponent::DRAM,
-   //                                                 m_core_id, address, data_buf, getCacheBlockSize(), &m_dummy_shmem_perf);
-   //    getMemoryManager()->getDramCntlr()->handleMsgFromTagDirectory(m_core_id, &shmem_msg2);
-   // }
+   //                             m_core_id_master, m_core_id_master, /* requester and receiver */
+   //                             address, NULL, 0,
+   //                             HitWhere::UNKNOWN, &m_dummy_shmem_perf, ShmemPerfModel::_SIM_THREAD);
 }
 
 void CacheCntlr::printCache()

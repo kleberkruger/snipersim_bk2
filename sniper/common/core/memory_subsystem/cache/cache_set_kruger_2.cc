@@ -45,7 +45,7 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
 
     if (all_modified)
     {
-        cntlr->flush();
+        cntlr->checkpoint();
         // printf("!!! FAZER FLUSH !!!\n");
         printf("RETORNEI o bloco 0\n");
         // printf("FIM getReplacementIndex()\n");

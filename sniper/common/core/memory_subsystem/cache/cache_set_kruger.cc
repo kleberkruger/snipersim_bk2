@@ -148,7 +148,7 @@ CacheSetKruger::getReplacementIndex(CacheCntlr *cntlr)
         {
             if (m_lru_bits[i] == max_bits)
             {
-                cntlr->flush();
+                cntlr->checkpoint();
                 return i;
             }
         }

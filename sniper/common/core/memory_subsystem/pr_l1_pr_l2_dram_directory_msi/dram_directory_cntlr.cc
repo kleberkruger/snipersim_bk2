@@ -250,7 +250,10 @@ DramDirectoryCntlr::handleMsgFromDRAM(core_id_t sender, ShmemMsg* shmem_msg)
 
 void DramDirectoryCntlr::processCpReqFromL2Cache(ShmemReq *shmem_req, Byte *cached_data_buf)
 {
-   printf("Process REQUEST from LLC\n");
+   printf("Process checkpoint REQUEST from LLC\n");
+
+   SubsecondTime now = getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD);
+   sendDataToDram(shmem_req->getShmemMsg()->getAddress(), shmem_req->getShmemMsg()->getRequester(), shmem_req->getShmemMsg()->getDataBuf(), now);
 }
 
 void DramDirectoryCntlr::processCpRepFromL2Cache(core_id_t sender, ShmemMsg *shmem_msg)

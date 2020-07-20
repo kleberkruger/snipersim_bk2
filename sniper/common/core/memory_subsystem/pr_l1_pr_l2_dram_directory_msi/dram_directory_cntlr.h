@@ -48,17 +48,19 @@ namespace PrL1PrL2DramDirectoryMSI
          void processNextReqFromL2Cache(IntPtr address);
          void processExReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_data_buf = NULL);
          void processShReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_data_buf = NULL);
-         void processWbReqFromL2Cache(ShmemReq *shmem_req, Byte *cached_data_buf = NULL); // Added by Kleber Kruger
+         void processUpgradeReqFromL2Cache(ShmemReq *shmem_req, Byte *cached_data_buf = NULL);
          void retrieveDataAndSendToL2Cache(ShmemMsg::msg_t reply_msg_type, core_id_t receiver, IntPtr address, Byte* cached_data_buf, ShmemMsg *orig_shmem_msg);
          void processDRAMReply(core_id_t sender, ShmemMsg* shmem_msg);
-
-         void processUpgradeReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_data_buf = NULL);
 
          void processInvRepFromL2Cache(core_id_t sender, ShmemMsg* shmem_msg);
          void processFlushRepFromL2Cache(core_id_t sender, ShmemMsg* shmem_msg);
          void processWbRepFromL2Cache(core_id_t sender, ShmemMsg* shmem_msg);
          void sendDataToNUCA(IntPtr address, core_id_t requester, Byte* data_buf, SubsecondTime now, bool count);
          void sendDataToDram(IntPtr address, core_id_t requester, Byte* data_buf, SubsecondTime now);
+
+         // NVM Chechpoint Support
+         void processCpReqFromL2Cache(ShmemReq *shmem_req, Byte *cached_data_buf = NULL); // Added by Kleber Kruger
+         void processCpRepFromL2Cache(core_id_t sender, ShmemMsg *shmem_msg);             // Added by Kleber Kruger
 
          void updateShmemPerf(ShmemReq *shmem_req, ShmemPerf::shmem_times_type_t reason = ShmemPerf::UNKNOWN)
          {

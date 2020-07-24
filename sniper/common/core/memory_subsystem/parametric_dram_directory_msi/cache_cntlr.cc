@@ -270,10 +270,24 @@ CacheCntlr::CacheCntlr(MemComponent::component_t mem_component,
       registerStatsMetric(name, core_id, "uncore-totaltime", &m_shmem_perf_totaltime);
       registerStatsMetric(name, core_id, "uncore-requests", &m_shmem_perf_numrequests);
    }
+
+   // Modified by Kleber Kruger
+   if (m_master->m_cache->getReplacementPolicy() == CacheBase::ReplacementPolicy::KRUGER) 
+   {
+      String filePath = Sim()->getConfig()->getOutputDirectory() + "/checkpoints.csv";
+      if ((dram_log_file = fopen(filePath.c_str(), "w")) == NULL)
+         fprintf(stderr, "DRAM Log File Error.\n");
+   }
 }
 
 CacheCntlr::~CacheCntlr()
 {
+   // Modified by Kleber Kruger
+   if (m_master->m_cache->getReplacementPolicy() == CacheBase::ReplacementPolicy::KRUGER)
+   {
+      fclose(dram_log_file);
+   }
+
    if (isMasterCache())
    {
       delete m_master;
@@ -1776,7 +1790,18 @@ CacheCntlr::incrementQBSLookupCost()
 
 void CacheCntlr::checkpoint()
 {
-   printCache(); 
+   // printCache();
+
+   SubsecondTime now = getShmemPerfModel()->getElapsedTime(ShmemPerfModel::_SIM_THREAD);
+   static SubsecondTime last = now;
+   SubsecondTime t = now >= last ? (now - last) : (last - now);
+   if (now > last)
+      last = now;
+   fprintf(dram_log_file, "%lu,%lu\n", now.getNS(), t.getNS());
+   
+   // static UInt64 n = 1;
+   // printf("checkpoint %lu: %luns\n", n++, now.getNS());
+
    for (UInt32 i = 0; i < m_master->m_cache->getNumSets(); i++) 
    { 
       for (UInt32 j = 0; j < m_master->m_cache->getAssociativity(); j++) 
@@ -1786,14 +1811,14 @@ void CacheCntlr::checkpoint()
             flushBlock(block_info);
       }
    }
-   printCache();
+   // printCache();
 }
 
 void CacheCntlr::flushBlock(CacheBlockInfo *block_info)
 {
    IntPtr address = m_master->m_cache->tagToAddress(block_info->getTag());
    Byte data_buf[getCacheBlockSize()];
-   printf("flushBlock: %lu\n", address);
+   // printf("flushBlock: %lu\n", address);
    
    updateCacheBlock(address, CacheState::SHARED, Transition::COHERENCY, data_buf, ShmemPerfModel::_SIM_THREAD);
 

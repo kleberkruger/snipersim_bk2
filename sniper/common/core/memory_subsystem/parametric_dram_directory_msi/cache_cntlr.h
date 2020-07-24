@@ -411,6 +411,8 @@ namespace ParametricDramDirectoryMSI
 
          friend class CacheCntlrList;
          friend class MemoryManager;
+
+         FILE *dram_log_file; // Added by Kleber Kruger
    };
 
 }

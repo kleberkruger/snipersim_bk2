@@ -5,6 +5,7 @@
 #include "fixed_types.h"
 #include "subsecond_time.h"
 #include "dram_cntlr_interface.h"
+#include "simulator.h" // Added by Kleber Kruger
 
 class ShmemPerf;
 
@@ -25,7 +26,7 @@ class DramPerfModel
       bool m_enabled;
       UInt64 m_num_accesses;
 
-      FILE *dram_log_file; // Modified by Kleber Kruger
+      // FILE *dram_log_file; // Modified by Kleber Kruger
 
       /**
        * Register DRAM access.
@@ -46,12 +47,13 @@ class DramPerfModel
 
       DramPerfModel(core_id_t core_id, UInt64 cache_block_size) : m_enabled(false), m_num_accesses(0) 
       {
-         // Modified by Kleber Kruger
-         if ((dram_log_file = fopen("dram_log.csv", "w")) == NULL)
-            fprintf(stderr, "DRAM Log File Error.\n");
+         // // Modified by Kleber Kruger
+         // String filePath = Sim()->getConfig()->getOutputDirectory() + "/dram_log.csv";
+         // if ((dram_log_file = fopen(filePath.c_str(), "w")) == NULL)
+         //    fprintf(stderr, "DRAM Log File Error.\n");
       }
       virtual ~DramPerfModel() {
-         fclose(dram_log_file); // Modified by Kleber Kruger
+         // fclose(dram_log_file); // Modified by Kleber Kruger
       }
       virtual SubsecondTime getAccessLatency(SubsecondTime pkt_time, UInt64 pkt_size, core_id_t requester, IntPtr address, DramCntlrInterface::access_t access_type, ShmemPerf *perf) = 0;
       void enable() { m_enabled = true; }

@@ -64,6 +64,7 @@ RUN apt-get update \
     gdb \
     git \
     doxygen \
+    xz-utils \
     #
     # For install Python 3
     python3 \
